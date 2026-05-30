@@ -10,351 +10,107 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/tabler-icons.min.css">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --bg: #0e0e10;
-    --bg2: #18181c;
-    --bg3: #222228;
-    --bg4: #2a2a32;
-    --t1: #f0f0f4;
-    --t2: #9090a0;
-    --t3: #55555f;
-    --border: rgba(255,255,255,0.07);
-    --border2: rgba(255,255,255,0.12);
-    --accent: #5b8fff;
-    --accent-bg: rgba(91,143,255,0.12);
-    --accent-text: #8ab4ff;
-    --success: #3ecf8e;
-    --success-bg: rgba(62,207,142,0.1);
-    --warn-bg: rgba(250,190,80,0.1);
-    --warn: #facc15;
-    --danger: #f87171;
-    --danger-bg: rgba(248,113,113,0.1);
-    --radius: 12px;
-    --radius-sm: 7px;
-    --font: 'IBM Plex Sans', sans-serif;
-    --mono: 'IBM Plex Mono', monospace;
+    --bg: #0e0e10; --bg2: #18181c; --bg3: #222228; --bg4: #2a2a32;
+    --t1: #f0f0f4; --t2: #9090a0; --t3: #55555f;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+    --accent: #5b8fff; --accent-bg: rgba(91,143,255,0.12); --accent-text: #8ab4ff;
+    --success: #3ecf8e; --success-bg: rgba(62,207,142,0.1);
+    --warn: #facc15; --warn-bg: rgba(250,204,21,0.1);
+    --danger: #f87171; --danger-bg: rgba(248,113,113,0.1);
+    --radius: 12px; --radius-sm: 7px;
+    --font: 'IBM Plex Sans', sans-serif; --mono: 'IBM Plex Mono', monospace;
   }
-
   html, body { height: 100%; }
-
-  body {
-    font-family: var(--font);
-    background: var(--bg);
-    color: var(--t1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 16px;
-  }
-
-  #app {
-    width: 100%;
-    max-width: 720px;
-    height: calc(100vh - 32px);
-    max-height: 860px;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    position: relative;
-  }
+  body { font-family: var(--font); background: var(--bg); color: var(--t1); display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+  #app { width: 100%; max-width: 720px; height: calc(100vh - 32px); max-height: 860px; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; position: relative; }
 
   /* Header */
-  #header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg2);
-    flex-shrink: 0;
-  }
+  #header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
   #header-left { display: flex; align-items: center; gap: 11px; }
-  #logo {
-    width: 32px; height: 32px;
-    border-radius: 9px;
-    background: var(--accent-bg);
-    border: 1px solid rgba(91,143,255,0.25);
-    display: flex; align-items: center; justify-content: center;
-  }
+  #logo { width: 32px; height: 32px; border-radius: 9px; background: var(--accent-bg); border: 1px solid rgba(91,143,255,0.25); display: flex; align-items: center; justify-content: center; }
   #logo i { font-size: 16px; color: var(--accent-text); }
-  #title { font-size: 14px; font-weight: 500; color: var(--t1); letter-spacing: -0.01em; }
+  #title { font-size: 14px; font-weight: 500; color: var(--t1); }
   #subtitle { font-size: 11px; color: var(--t3); margin-top: 1px; }
   #header-right { display: flex; align-items: center; gap: 8px; }
-
-  .badge {
-    font-size: 11px; padding: 3px 9px;
-    border-radius: 20px;
-    display: flex; align-items: center; gap: 4px;
-    font-weight: 500;
-  }
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; display: flex; align-items: center; gap: 4px; font-weight: 500; }
   .badge.ok { background: var(--success-bg); color: var(--success); }
   .badge.loading { background: var(--warn-bg); color: var(--warn); }
   .badge.error { background: var(--danger-bg); color: var(--danger); }
-
-  #btn-settings {
-    background: transparent;
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-sm);
-    padding: 6px 10px;
-    cursor: pointer;
-    color: var(--t2);
-    font-size: 12px;
-    font-family: var(--font);
-    display: flex; align-items: center; gap: 5px;
-    transition: background 0.15s, color 0.15s;
-  }
+  #btn-settings { background: transparent; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; color: var(--t2); font-size: 12px; font-family: var(--font); display: flex; align-items: center; gap: 5px; transition: background 0.15s, color 0.15s; }
   #btn-settings:hover { background: var(--bg3); color: var(--t1); }
 
   /* Toolbar */
-  #toolbar {
-    display: flex; align-items: center; gap: 8px;
-    padding: 9px 18px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg);
-    flex-shrink: 0;
-  }
+  #toolbar { display: flex; align-items: center; gap: 8px; padding: 9px 18px; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; }
   #toolbar label { font-size: 11px; color: var(--t3); white-space: nowrap; }
-  #model-select {
-    flex: 1;
-    font-size: 12px;
-    font-family: var(--font);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-sm);
-    padding: 5px 9px;
-    background: var(--bg2);
-    color: var(--t1);
-    cursor: pointer;
-    outline: none;
-  }
+  #model-select { flex: 1; font-size: 12px; font-family: var(--font); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 5px 9px; background: var(--bg2); color: var(--t1); cursor: pointer; outline: none; }
   #model-select:focus { border-color: var(--accent); }
-
-  #btn-clear {
-    background: transparent;
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-sm);
-    padding: 5px 10px;
-    font-size: 11px;
-    font-family: var(--font);
-    color: var(--t2);
-    cursor: pointer;
-    display: flex; align-items: center; gap: 4px;
-    white-space: nowrap;
-    transition: background 0.15s, color 0.15s;
-  }
+  #btn-clear { background: transparent; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 5px 10px; font-size: 11px; font-family: var(--font); color: var(--t2); cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap; transition: background 0.15s, color 0.15s; }
   #btn-clear:hover { background: var(--bg3); color: var(--t1); }
+  #btn-reload-vault { background: transparent; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 11px; font-family: var(--font); color: var(--t2); cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap; transition: background 0.15s, color 0.15s; }
+  #btn-reload-vault:hover { background: var(--bg3); color: var(--t1); }
 
   /* Messages */
-  #messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--bg4) transparent;
-  }
+  #messages { flex: 1; overflow-y: auto; padding: 20px 18px; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; scrollbar-color: var(--bg4) transparent; }
   #messages::-webkit-scrollbar { width: 4px; }
   #messages::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
-
-  .sys-msg {
-    text-align: center;
-    font-size: 11px;
-    color: var(--t3);
-    padding: 2px 0;
-  }
-
+  .sys-msg { text-align: center; font-size: 11px; color: var(--t3); padding: 2px 0; }
   .msg { display: flex; gap: 10px; align-items: flex-start; }
   .msg.user { flex-direction: row-reverse; }
-
-  .avatar {
-    width: 30px; height: 30px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 500;
-    font-family: var(--mono);
-    letter-spacing: -0.02em;
-  }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; font-family: var(--mono); }
   .avatar.ai { background: var(--accent-bg); color: var(--accent-text); border: 1px solid rgba(91,143,255,0.2); }
   .avatar.user { background: var(--bg3); color: var(--t2); border: 1px solid var(--border); }
-
-  .msg-body { display: flex; flex-direction: column; gap: 4px; max-width: 76%; }
+  .msg-body { display: flex; flex-direction: column; gap: 4px; max-width: 78%; }
   .msg.user .msg-body { align-items: flex-end; }
-
-  .bubble {
-    padding: 10px 14px;
-    border-radius: 14px;
-    font-size: 13.5px;
-    line-height: 1.65;
-    color: var(--t1);
-  }
-  .msg.ai .bubble {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-top-left-radius: 4px;
-  }
-  .msg.user .bubble {
-    background: var(--accent-bg);
-    border: 1px solid rgba(91,143,255,0.2);
-    color: var(--accent-text);
-    border-top-right-radius: 4px;
-  }
+  .bubble { padding: 10px 14px; border-radius: 14px; font-size: 13.5px; line-height: 1.65; color: var(--t1); }
+  .msg.ai .bubble { background: var(--bg3); border: 1px solid var(--border); border-top-left-radius: 4px; }
+  .msg.user .bubble { background: var(--accent-bg); border: 1px solid rgba(91,143,255,0.2); color: var(--accent-text); border-top-right-radius: 4px; }
   .bubble p { margin: 0 0 6px; }
   .bubble p:last-child { margin: 0; }
   .bubble strong { font-weight: 500; color: var(--t1); }
-  .bubble code {
-    font-family: var(--mono);
-    font-size: 12px;
-    background: var(--bg4);
-    padding: 1px 5px;
-    border-radius: 4px;
-    color: #c9d1d9;
-  }
-  .bubble pre {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px;
-    margin: 8px 0;
-    overflow-x: auto;
-    scrollbar-width: thin;
-  }
+  .bubble em { font-style: italic; color: var(--t2); }
+  .bubble code { font-family: var(--mono); font-size: 12px; background: var(--bg4); padding: 1px 5px; border-radius: 4px; color: #c9d1d9; }
+  .bubble pre { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin: 8px 0; overflow-x: auto; }
   .bubble pre code { background: none; padding: 0; font-size: 12px; }
+  .bubble ul, .bubble ol { padding-left: 18px; margin: 4px 0 8px; }
+  .bubble li { margin-bottom: 3px; }
   .msg-time { font-size: 10px; color: var(--t3); }
-
-  .thinking {
-    display: flex; align-items: center; gap: 7px;
-    padding: 6px 0;
-  }
+  .thinking { display: flex; align-items: center; gap: 7px; padding: 6px 0; }
   .dots { display: flex; gap: 4px; }
-  .dot {
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: var(--t3);
-    animation: pulse 1.4s infinite;
-  }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--t3); animation: pulse 1.4s infinite; }
   .dot:nth-child(2) { animation-delay: 0.2s; }
   .dot:nth-child(3) { animation-delay: 0.4s; }
   @keyframes pulse { 0%,80%,100%{opacity:0.2;transform:scale(0.8)} 40%{opacity:1;transform:scale(1)} }
   .thinking-label { font-size: 11px; color: var(--t3); font-family: var(--mono); }
 
   /* Input */
-  #input-area {
-    border-top: 1px solid var(--border);
-    padding: 12px 18px;
-    display: flex; gap: 8px; align-items: flex-end;
-    background: var(--bg2);
-    flex-shrink: 0;
-  }
-  #msg-input {
-    flex: 1;
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-sm);
-    padding: 9px 13px;
-    font-size: 13px;
-    font-family: var(--font);
-    color: var(--t1);
-    background: var(--bg);
-    resize: none;
-    min-height: 40px;
-    max-height: 120px;
-    line-height: 1.5;
-    outline: none;
-    transition: border-color 0.15s;
-  }
+  #input-area { border-top: 1px solid var(--border); padding: 12px 18px; display: flex; gap: 8px; align-items: flex-end; background: var(--bg2); flex-shrink: 0; }
+  #msg-input { flex: 1; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 9px 13px; font-size: 13px; font-family: var(--font); color: var(--t1); background: var(--bg); resize: none; min-height: 40px; max-height: 120px; line-height: 1.5; outline: none; transition: border-color 0.15s; }
   #msg-input:focus { border-color: var(--accent); }
   #msg-input::placeholder { color: var(--t3); }
-
-  #btn-send {
-    width: 40px; height: 40px;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    transition: opacity 0.15s, transform 0.1s;
-  }
+  #btn-send { width: 40px; height: 40px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s, transform 0.1s; }
   #btn-send:hover { opacity: 0.85; }
   #btn-send:active { transform: scale(0.95); }
   #btn-send:disabled { opacity: 0.3; cursor: not-allowed; }
   #btn-send i { font-size: 18px; }
 
-  /* Settings panel */
-  #settings-overlay {
-    display: none;
-    position: absolute; inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 20;
-    align-items: center;
-    justify-content: center;
-  }
+  /* Settings */
+  #settings-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.6); z-index: 20; align-items: center; justify-content: center; }
   #settings-overlay.open { display: flex; }
-  #settings-panel {
-    background: var(--bg2);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius);
-    padding: 20px;
-    width: 340px;
-    max-width: calc(100vw - 32px);
-  }
-  #settings-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 16px;
-  }
+  #settings-panel { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 20px; width: 340px; max-width: calc(100vw - 32px); }
+  #settings-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
   #settings-header h3 { font-size: 14px; font-weight: 500; color: var(--t1); }
-  #btn-close-settings {
-    background: none; border: none; cursor: pointer;
-    color: var(--t2); font-size: 18px;
-    display: flex; align-items: center;
-  }
+  #btn-close-settings { background: none; border: none; cursor: pointer; color: var(--t2); font-size: 18px; display: flex; align-items: center; }
   #btn-close-settings:hover { color: var(--t1); }
-
   .field { margin-bottom: 12px; }
   .field label { font-size: 11px; color: var(--t2); display: block; margin-bottom: 5px; }
-  .field input {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-sm);
-    padding: 8px 11px;
-    font-size: 12px;
-    font-family: var(--font);
-    color: var(--t1);
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .field input:focus { border-color: var(--accent); }
-  .field input::placeholder { color: var(--t3); }
-
-  #btn-save {
-    width: 100%;
-    padding: 9px;
-    font-size: 13px;
-    font-family: var(--font);
-    font-weight: 500;
-    margin-top: 4px;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: opacity 0.15s;
-  }
+  .field input, .field textarea { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 11px; font-size: 12px; font-family: var(--font); color: var(--t1); outline: none; transition: border-color 0.15s; }
+  .field textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field input::placeholder, .field textarea::placeholder { color: var(--t3); }
+  #btn-save { width: 100%; padding: 9px; font-size: 13px; font-family: var(--font); font-weight: 500; margin-top: 4px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; transition: opacity 0.15s; }
   #btn-save:hover { opacity: 0.85; }
-  .settings-note {
-    font-size: 10px;
-    color: var(--t3);
-    margin-top: 10px;
-    line-height: 1.6;
-  }
+  .settings-note { font-size: 10px; color: var(--t3); margin-top: 10px; line-height: 1.6; }
 
   @media (max-width: 480px) {
     body { padding: 0; }
@@ -363,7 +119,6 @@
 </style>
 </head>
 <body>
-
 <div id="app">
   <div id="header">
     <div id="header-left">
@@ -374,7 +129,7 @@
       </div>
     </div>
     <div id="header-right">
-      <div id="vault-status" class="badge loading"><i class="ti ti-loader"></i> sem credenciais</div>
+      <div id="vault-status" class="badge error"><i class="ti ti-alert-circle"></i> sem credenciais</div>
       <button id="btn-settings"><i class="ti ti-settings"></i> config</button>
     </div>
   </div>
@@ -382,13 +137,14 @@
   <div id="toolbar">
     <label for="model-select">Modelo</label>
     <select id="model-select">
-      <optgroup label="Groq (gratuito)">
-        <option value="groq|llama-3.3-70b-versatile">Llama 3.3 70B — melhor</option>
-        <option value="groq|llama3-8b-8192">Llama 3 8B — mais rápido</option>
-        <option value="groq|gemma2-9b-it">Gemma 2 9B</option>
-        <option value="groq|mixtral-8x7b-32768">Mixtral 8x7B</option>
+      <optgroup label="Groq — gratuito e rápido">
+        <option value="llama-3.3-70b-versatile">Llama 3.3 70B — melhor qualidade</option>
+        <option value="llama3-groq-8b-8192-tool-use-preview">Llama 3 8B — mais rápido</option>
+        <option value="gemma2-9b-it">Gemma 2 9B</option>
+        <option value="qwen-qwq-32b">Qwen QwQ 32B — raciocínio</option>
       </optgroup>
     </select>
+    <button id="btn-reload-vault" title="Recarregar vault"><i class="ti ti-refresh"></i></button>
     <button id="btn-clear"><i class="ti ti-trash"></i> limpar</button>
   </div>
 
@@ -397,7 +153,7 @@
   </div>
 
   <div id="input-area">
-    <textarea id="msg-input" placeholder="Digite sua mensagem... (Enter para enviar)" rows="1"></textarea>
+    <textarea id="msg-input" placeholder="Digite sua mensagem... (Enter para enviar, Shift+Enter para nova linha)" rows="1"></textarea>
     <button id="btn-send"><i class="ti ti-arrow-up"></i></button>
   </div>
 
@@ -412,7 +168,7 @@
         <input type="password" id="inp-groq" placeholder="gsk_...">
       </div>
       <div class="field">
-        <label for="inp-gh-token">GitHub Token (vault)</label>
+        <label for="inp-gh-token">GitHub Token (para vault)</label>
         <input type="password" id="inp-gh-token" placeholder="ghp_...">
       </div>
       <div class="field">
@@ -420,10 +176,10 @@
         <input type="text" id="inp-gist-id" placeholder="98d6f44...">
       </div>
       <div class="field">
-        <label for="inp-system">Prompt de sistema (opcional)</label>
-        <input type="text" id="inp-system" placeholder="Você é um assistente pessoal chamado MeuCérebro...">
+        <label for="inp-system">Contexto extra (opcional)</label>
+        <textarea id="inp-system" placeholder="Ex: Meu nome é Deivid, moro em Penha/SC, trabalho com tecnologia..."></textarea>
       </div>
-      <button id="btn-save">Salvar e conectar</button>
+      <button id="btn-save">Salvar e conectar vault</button>
       <div class="settings-note">As chaves ficam salvas apenas no seu navegador (localStorage) e nunca são enviadas a terceiros além dos próprios provedores de IA.</div>
     </div>
   </div>
@@ -452,19 +208,39 @@ function setVaultStatus(state, text) {
 
 async function loadVault() {
   if (!cfg.ghToken || !cfg.gistId) { setVaultStatus('error', 'sem credenciais'); return; }
-  setVaultStatus('loading', 'carregando vault...');
+  setVaultStatus('loading', 'carregando...');
   try {
-    const r = await fetch(GIST_URL + cfg.gistId, { headers: { Authorization: 'token ' + cfg.ghToken } });
+    const r = await fetch(GIST_URL + cfg.gistId, { headers: { Authorization: 'token ' + cfg.ghToken, Accept: 'application/vnd.github.v3+json' } });
     if (!r.ok) throw new Error('status ' + r.status);
     const data = await r.json();
     const files = Object.values(data.files);
-    vaultContent = files.map(f => `--- ${f.filename} ---\n${f.content}`).join('\n\n');
-    setVaultStatus('ok', 'vault conectada');
-    addSysMsg(`Vault carregada com ${files.length} arquivo(s).`);
+    vaultContent = files.map(f => f.content).join('\n\n');
+    setVaultStatus('ok', `vault ok (${files.length} arquivo${files.length > 1 ? 's' : ''})`);
+    addSysMsg(`Vault carregada — ${files.length} arquivo(s) na memória.`);
   } catch(e) {
     setVaultStatus('error', 'erro na vault');
-    addSysMsg('Não foi possível carregar a vault: ' + e.message);
+    addSysMsg('Erro ao carregar vault: ' + e.message);
   }
+}
+
+function buildSystemPrompt() {
+  const base = cfg.systemPrompt
+    ? cfg.systemPrompt
+    : 'Você é MeuCérebro, um assistente pessoal inteligente e direto. Responda sempre em português brasileiro.';
+
+  const vaultSection = vaultContent ? `
+
+## MEMÓRIA DE LONGO PRAZO (Vault do Obsidian)
+
+O conteúdo abaixo é a vault pessoal do usuário — notas, projetos, ideias e memórias salvas ao longo do tempo. Use esse contexto para personalizar suas respostas, lembrar de informações sobre o usuário e suas preferências, e responder perguntas sobre o que foi registrado.
+
+Quando o usuário perguntar "o que você sabe sobre mim", "quais são minhas memórias", "o que eu anotei sobre X" ou qualquer coisa relacionada ao histórico pessoal dele, consulte este conteúdo abaixo para responder.
+
+--- INÍCIO DA VAULT ---
+${vaultContent}
+--- FIM DA VAULT ---` : '';
+
+  return base + vaultSection;
 }
 
 function addSysMsg(text) {
@@ -481,6 +257,10 @@ function fmt(text) {
   text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
   text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  text = text.replace(/^### (.+)$/gm, '<strong>$1</strong>');
+  text = text.replace(/^## (.+)$/gm, '<strong>$1</strong>');
+  text = text.replace(/^- (.+)$/gm, '<li>$1</li>');
+  text = text.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
   text = text.replace(/\n/g, '<br>');
   return text;
 }
@@ -511,16 +291,10 @@ function showThinking() {
   const el = document.createElement('div');
   el.className = 'msg ai';
   el.id = 'thinking-msg';
-  el.innerHTML = `
-    <div class="avatar ai">AI</div>
-    <div class="thinking">
-      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-      <span class="thinking-label">pensando...</span>
-    </div>`;
+  el.innerHTML = `<div class="avatar ai">AI</div><div class="thinking"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><span class="thinking-label">pensando...</span></div>`;
   document.getElementById('messages').appendChild(el);
   scrollBottom();
 }
-
 function removeThinking() { const el = document.getElementById('thinking-msg'); if (el) el.remove(); }
 function scrollBottom() { const m = document.getElementById('messages'); m.scrollTop = m.scrollHeight; }
 
@@ -539,22 +313,21 @@ async function sendMessage() {
   document.getElementById('btn-send').disabled = true;
   showThinking();
 
-  const [provider, model] = document.getElementById('model-select').value.split('|');
-  const systemMsg = (cfg.systemPrompt || 'Você é um assistente pessoal inteligente chamado MeuCérebro.') +
-    (vaultContent ? `\n\nCONTEXTO DA VAULT (memória de longo prazo do usuário):\n${vaultContent}` : '');
+  const model = document.getElementById('model-select').value;
+  const systemMsg = buildSystemPrompt();
 
   try {
-    let reply = '';
-    if (provider === 'groq') {
-      const r = await fetch(GROQ_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.groqKey },
-        body: JSON.stringify({ model, messages: [{ role: 'system', content: systemMsg }, ...history], max_tokens: 1024, temperature: 0.7 })
-      });
-      if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'erro ' + r.status); }
-      const data = await r.json();
-      reply = data.choices?.[0]?.message?.content || '(sem resposta)';
+    const r = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.groqKey },
+      body: JSON.stringify({ model, messages: [{ role: 'system', content: systemMsg }, ...history], max_tokens: 1500, temperature: 0.7 })
+    });
+    if (!r.ok) {
+      const e = await r.json();
+      throw new Error(e.error?.message || 'erro ' + r.status);
     }
+    const data = await r.json();
+    const reply = data.choices?.[0]?.message?.content || '(sem resposta)';
     removeThinking();
     addMsg('ai', reply);
     history.push({ role: 'assistant', content: reply });
@@ -575,10 +348,11 @@ document.getElementById('msg-input').addEventListener('input', function() {
   this.style.height = Math.min(this.scrollHeight, 120) + 'px';
 });
 document.getElementById('btn-send').addEventListener('click', sendMessage);
+document.getElementById('btn-reload-vault').addEventListener('click', loadVault);
 document.getElementById('btn-settings').addEventListener('click', () => {
-  document.getElementById('settings-overlay').classList.add('open');
   document.getElementById('inp-gist-id').value = cfg.gistId || '';
   document.getElementById('inp-system').value = cfg.systemPrompt || '';
+  document.getElementById('settings-overlay').classList.add('open');
 });
 document.getElementById('btn-close-settings').addEventListener('click', () => {
   document.getElementById('settings-overlay').classList.remove('open');
