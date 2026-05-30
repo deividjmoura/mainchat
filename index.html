@@ -140,7 +140,6 @@
       <optgroup label="Groq — gratuito e rápido">
         <option value="llama-3.3-70b-versatile">Llama 3.3 70B — melhor qualidade</option>
         <option value="llama-3.1-8b-instant">Llama 3.1 8B — mais rápido</option>
-        <option value="gemma2-9b-it">Gemma 2 9B</option>
         <option value="openai/gpt-oss-120b">GPT-OSS 120B — raciocínio avançado</option>
       </optgroup>
     </select>
@@ -226,20 +225,11 @@ async function loadVault() {
 function buildSystemPrompt() {
   const base = cfg.systemPrompt
     ? cfg.systemPrompt
-    : 'Você é MeuCérebro, um assistente pessoal inteligente e direto. Responda sempre em português brasileiro.';
-
-  const vaultSection = vaultContent ? `
-
-## MEMÓRIA DE LONGO PRAZO (Vault do Obsidian)
-
-O conteúdo abaixo é a vault pessoal do usuário — notas, projetos, ideias e memórias salvas ao longo do tempo. Use esse contexto para personalizar suas respostas, lembrar de informações sobre o usuário e suas preferências, e responder perguntas sobre o que foi registrado.
-
-Quando o usuário perguntar "o que você sabe sobre mim", "quais são minhas memórias", "o que eu anotei sobre X" ou qualquer coisa relacionada ao histórico pessoal dele, consulte este conteúdo abaixo para responder.
-
---- INÍCIO DA VAULT ---
-${vaultContent}
---- FIM DA VAULT ---` : '';
-
+    : 'Você é MeuCérebro, assistente pessoal. Responda em português brasileiro.';
+  const MAX = 2000;
+  let vault = vaultContent || '';
+  if (vault.length > MAX) vault = vault.slice(0, MAX) + '\n[vault truncada]';
+  const vaultSection = vault ? `\n\n## MEMÓRIA (Vault Obsidian)\nUse para responder sobre histórico pessoal do usuário.\n--- VAULT ---\n${vault}\n--- FIM ---` : '';
   return base + vaultSection;
 }
 
@@ -316,17 +306,25 @@ async function sendMessage() {
   const model = document.getElementById('model-select').value;
   const systemMsg = buildSystemPrompt();
 
-  try {
+  const callAPI = async (retries = 2) => {
     const r = await fetch(GROQ_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.groqKey },
-      body: JSON.stringify({ model, messages: [{ role: 'system', content: systemMsg }, ...history], max_tokens: 1500, temperature: 0.7 })
+      body: JSON.stringify({ model, messages: [{ role: 'system', content: systemMsg }, ...history], max_tokens: 800, temperature: 0.7 })
     });
-    if (!r.ok) {
-      const e = await r.json();
-      throw new Error(e.error?.message || 'erro ' + r.status);
+    if (r.status === 429 && retries > 0) {
+      const err = await r.json();
+      const msg = err.error?.message || '';
+      const wait = parseFloat((msg.match(/try again in ([\d.]+)s/) || [])[1] || '5') * 1000;
+      document.getElementById('thinking-msg').querySelector('.thinking-label').textContent = `aguardando ${Math.ceil(wait/1000)}s (rate limit)...`;
+      await new Promise(res => setTimeout(res, wait + 500));
+      return callAPI(retries - 1);
     }
-    const data = await r.json();
+    if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'erro ' + r.status); }
+    return r.json();
+  };
+  try {
+    const data = await callAPI();
     const reply = data.choices?.[0]?.message?.content || '(sem resposta)';
     removeThinking();
     addMsg('ai', reply);
