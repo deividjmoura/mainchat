@@ -1,101 +1,161 @@
 # Contrato de integração das cenas
 
-**Status: proposta em validação — ainda NÃO congelado.** O contrato só passa a ser considerado congelado quando o gate de CI estiver verde, o motor de transições/debug estiver validado e a revisão do responsável pelo projeto for concluída. Até lá, os agentes não devem integrar cenas definitivas.
+**Versão 1.0 — contrato de API congelado em 2026-11-13.**
 
-## 1. Tipos públicos
+Este documento congela a interface pública das cenas, o fluxo de integração e a divisão de responsabilidades. A implementação visual ainda está em fase de fundação: congelar o contrato **não significa** que os gates de qualidade ou o runtime já foram aprovados. Não iniciar a integração definitiva das cenas até o relatório em [VALIDATION.md](./VALIDATION.md) estar atualizado com evidências verdes.
 
-Localização atual: `src/scenes/types.ts`.
+## 1. Tipos públicos (não alterar sem revisão de contrato)
+
+Localização: `src/scenes/types.ts`.
 
 ```ts
 import type { MotionValue } from 'motion';
 import type { ComponentType } from 'react';
 
 export type TextBlock = {
-  at: number;          // ponto de entrada entre 0 e 1
+  at: number;          // ponto de entrada no progresso local, entre 0 e 1
   title: string;
   body: string;
   eyebrow?: string;
 };
 
 export type SceneProps = {
-  progress: MotionValue<number>; // progresso local da cena, 0..1
+  progress: MotionValue<number>; // progresso local da cena, sempre 0..1
 };
 
 export type SceneDefinition = {
   id: string;           // slug estável, ex.: "01-terra"
-  scrollLength: number; // extensão da cena em vh
+  scrollLength: number; // extensão da seção em vh
   textBlocks: TextBlock[];
   Component: ComponentType<SceneProps>;
 };
 ```
 
-Regras:
-- `progress` é a única entrada temporal da cena; não criar scroll listeners próprios.
-- `textBlocks.at` deve estar entre 0 e 1, em ordem crescente.
-- Componentes devem derivar animação de `progress`, não criar store global.
-- Não alterar nomes, tipos, semântica de progress ou assinatura de Component sem issue + PR de contrato.
+Regras obrigatórias:
+- Cada cena recebe somente `progress` como entrada temporal. Não criar listeners de scroll, RAF ou timelines independentes.
+- `progress` e `TextBlock.at` são valores normalizados entre 0 e 1.
+- `textBlocks` devem estar em ordem crescente por `at`.
+- `scrollLength` deve ser um número positivo em unidades de viewport height.
+- A cena não cria nem altera estado global. Estado visual interno pode ser local ao componente.
+- Não renomear propriedades, mudar tipos ou alterar a semântica sem PR específico de contrato aprovado pelo responsável do projeto.
 
-## 2. Store
+## 2. Estado global
 
-Store global mínimo em `src/store/useJourneyStore.ts`:
-- Estado público: `sceneId: string`, `progress: number`.
-- Ação técnica: `setJourney(sceneId, progress)`.
-- Não adicionar estado de cena, câmera, assets, loading ou animação ao Zustand. Estado local pertence à própria cena.
+Localização: `src/store/useJourneyStore.ts`.
 
-## 3. Pastas por cena
+Estado público:
+- `sceneId: string`
+- `progress: number`
+- `setJourney(sceneId, progress)`
 
-Cada cena terá:
-- `src/scenes/<id>/index.tsx`: componente e export da definição.
-- `src/scenes/<id>/README.md`: descrição, assets, licença/origem e instruções.
-- `public/assets/<id>/`: GLB, texturas, sequências de frames e fallback estático.
+O Zustand contém somente a posição narrativa global. Não adicionar câmera, geometria, assets, loading ou estado de animação de uma cena. O progresso animável da cena é fornecido pelo `MotionValue<number>` mantido pelo motor.
 
-IDs fixos nesta narrativa:
+## 3. Estrutura de pastas
+
+```text
+src/
+  App.tsx                    # composição da experiência
+  components/                # NarrativeText, ProgressRail, StaticFallback
+  core/                      # SceneManager, transições e métricas do ticker
+  design/tokens.ts           # paleta, tipografia, layout e easing
+  hooks/                     # hooks de qualidade/capacidade do dispositivo
+  scenes/
+    types.ts                 # API pública congelada
+    stubs.tsx                # catálogo atual e componentes provisórios
+    README.md                # orientações gerais das cenas
+    <id>/
+      index.tsx              # export público Component da cena
+      README.md              # descrição, assets e instruções da cena
+  store/useJourneyStore.ts   # estado global mínimo
+  ui/                        # DebugPanel e UI transversal
+  styles.css                 # estilos globais
+public/
+  assets/
+    <id>/                     # modelos, texturas, frames e fallbacks da cena
+      README.md
+docs/
+  CONTRACT.md
+  VALIDATION.md
+```
+
+IDs fixos desta narrativa:
 - `01-terra`
 - `02-cogumelo`
 - `03-mao-boca`
 - `04-veias`
 - `05-cerebro`
 
-Assets devem ter origem/licença documentadas. Dizer explicitamente no README se cada elemento é procedural ou asset externo. Não commitar arquivos temporários ou assets sem licença clara.
+Cada cena deve manter seus arquivos e assets dentro da pasta de seu ID. Não reutilizar IDs para outra cena.
 
-## 4. Donos dos arquivos
+## 4. Donos de cada pasta/arquivo
 
-| Responsável | Área |
-|---|---|
-| Agente base / motor | `src/core/*`, `src/design/*`, `src/ui/*`, `src/content/*`, `docs/*` |
-| Agente 2 | `src/scenes/01-terra/*`, `02-cogumelo/*`, `03-mao-boca/*` |
-| Agente 3 | `src/scenes/04-veias/*`, `05-cerebro/*` |
+| Área | Responsável | Pode alterar |
+|---|---|---|
+| `src/core/**` | Agente base / motor | Lenis, ScrollTrigger, SceneManager, transições e ticker |
+| `src/design/**` | Agente base / direção visual | tokens compartilhados; mudanças coordenadas com todas as cenas |
+| `src/ui/**` | Agente base / UI transversal | painel debug e controles globais |
+| `src/components/**` | Agente base / composição | NarrativeText, ProgressRail e fallback |
+| `src/hooks/**` | Agente base / plataforma | detecção de qualidade/capacidade e hooks compartilhados |
+| `src/store/**` | Agente base / estado | store global mínimo |
+| `src/App.tsx`, `src/styles.css` | Agente base / integração | montagem, layout global e integração entre cenas |
+| `src/scenes/types.ts`, `src/scenes/stubs.tsx` | Agente base / integração | contrato e catálogo/registro central |
+| `src/scenes/01-terra/**`, `02-cogumelo/**`, `03-mao-boca/**` | Agente de cenas A | implementação e README dessas três cenas |
+| `src/scenes/04-veias/**`, `05-cerebro/**` | Agente de cenas B | implementação e README dessas duas cenas |
+| `public/assets/01-terra/**`, `02-cogumelo/**`, `03-mao-boca/**` | Agente de cenas A | assets dessas cenas e seus READMEs |
+| `public/assets/04-veias/**`, `05-cerebro/**` | Agente de cenas B | assets dessas cenas e seus READMEs |
+| `docs/**` | Agente base / responsável do projeto | documentação e relatório de validação |
 
-Não editar arquivos fora da sua área. Não modificar contrato, scroll engine, design tokens, transições, debug panel ou conteúdo editorial sem coordenar com o dono da base. Qualquer alteração de contrato exige issue + PR próprio e aviso ao responsável pelo projeto.
+**Regra de propriedade:** não editar arquivos de outra área. Se a implementação precisar alterar um arquivo compartilhado, abrir PR de integração e solicitar ao dono da área; não fazer commits diretos na branch compartilhada.
 
-## 5. Registrar uma cena nova (5 passos)
+## 5. Como implementar e registrar uma cena
 
-1. Criar `src/scenes/<id>/index.tsx` e implementar `Component({ progress })`.
-2. Exportar uma definição com `id`, `scrollLength`, `textBlocks` e `Component`.
-3. Criar `public/assets/<id>/` e adicionar apenas assets otimizados/licenciados.
-4. Documentar no README da cena o que é procedural e o que é externo.
-5. Registrar a definição no catálogo central, sem alterar o SceneManager nem os tipos.
+O contrato de API é estável. O catálogo atual fica em `src/scenes/stubs.tsx`; os `index.tsx` individuais são os pontos públicos de exportação da implementação. O responsável pelo catálogo faz o registro central para evitar conflitos entre agentes.
 
-## 6. Transições e continuidade
+1. Criar/editar somente `src/scenes/<id>/index.tsx` e implementar um componente React que receba `SceneProps`.
+2. Exportar o componente como `Component` pelo `index.tsx`. O componente deve derivar toda animação temporal do `progress` recebido.
+3. Criar `src/scenes/<id>/README.md`, documentando objetivo narrativo, técnica, assets, origem/licença e o que é procedural versus externo.
+4. Colocar assets em `public/assets/<id>/`; otimizar modelos e texturas e não incluir arquivos temporários ou materiais sem licença clara. Adicionar um README nessa pasta.
+5. Abrir PR para a branch de integração. O responsável pelo motor atualiza `src/scenes/stubs.tsx`/catálogo com o componente e sua definição (`id`, `scrollLength`, `textBlocks`, `Component`) e verifica a ordem narrativa. O agente da cena não altera o catálogo compartilhado.
 
-O motor é dono das transições entre cenas. A cena não deve implementar fade de navegação, controlar o Lenis ou modificar ScrollTrigger. O corte deve respeitar a configuração do par anterior/próximo. A última composição da cena N deve combinar com a primeira composição da cena N+1 em câmera, luz, escala e cor.
+Validação mínima de cada cena: componente renderiza sem scroll próprio, progresso cobre 0..1, textos estão ordenados, assets têm origem/licença, cleanup não deixa recursos externos vivos e o README está completo.
 
-## 7. Performance e acessibilidade
+## 6. Scroll, transições e continuidade
+
+- O motor em `src/core/SceneManager.ts` é o único dono de Lenis e ScrollTrigger.
+- A cena não deve chamar `window.scrollTo`, criar RAF, criar ScrollTrigger ou controlar navegação.
+- A última composição da cena N deve combinar com a primeira composição da cena N+1 em câmera, escala, luz e cor.
+- Configuração de transição é responsabilidade de `src/core/transitions.ts`. A implementação atual usa uma camada visual de transição; não assumir que ela já é um crossfade real entre duas renderizações.
+- A montagem de cenas e a gestão de recursos Three.js pertencem ao motor/composição, não a cada agente de cena.
+
+## 7. Modo de depuração
+
+Ativar com `?debug=1`, por exemplo `http://localhost:5173/?debug=1`.
+
+O painel em `src/ui/DebugPanel.tsx` deve oferecer:
+- seletor para navegar entre as cenas cadastradas;
+- slider de progresso local de 0 a 1, com precisão de 0.001;
+- leitura de FPS do ticker;
+- indicação do nível de qualidade gráfico atual.
+
+O painel é ferramenta de desenvolvimento, não conteúdo da experiência pública. Não remover nem alterar sua API sem coordenação com o agente base. A leitura atual de FPS é baseada no ticker; não equivale a benchmark de GPU ou garantia de 60 FPS.
+
+## 8. Performance e acessibilidade
 
 - Respeitar `prefers-reduced-motion`.
-- Lazy-load de assets pesados e fallback visual.
-- Liberar recursos Three.js de propriedade da cena quando forem criados fora do ciclo normal do reconciler.
+- Prever fallback quando WebGL não estiver disponível.
+- Lazy-load de assets pesados quando forem adicionados.
+- Liberar recursos criados fora do ciclo normal do reconciler.
 - Não criar RAF próprio nem listeners globais de scroll dentro das cenas.
-- Validar desktop e mobile; não prometer 60 FPS sem medição documentada no dispositivo alvo.
+- Validar desktop e mobile. Nunca prometer 60 FPS sem medição documentada no dispositivo/browser alvo.
 
-## 8. Branches e commits
+## 9. Branches, PRs e commits
 
-- Branch compartilhada de integração: `feat/scrollytelling-foundation`.
-- Cenas devem trabalhar em branches próprias, por exemplo `feat/scene-01-terra`, e abrir PR direcionado à branch de integração.
-- Não fazer push direto na branch compartilhada durante integração paralela.
-- Conventional Commits em inglês: `feat(scene-01): add soil composition`, `fix(core): synchronize scroll progress`, `docs(contract): clarify scene registration`.
-- Não fazer merge de PR de cena com conflitos em arquivos pertencentes a outro agente sem resolução conjunta.
+- Branch de integração: `feat/scrollytelling-foundation`.
+- Trabalho de cena em branch própria, por exemplo `feat/scene-01-terra`.
+- Abrir PR da branch de cena para `feat/scrollytelling-foundation`; não fazer push direto na branch compartilhada.
+- Conventional Commits em inglês, por exemplo `feat(scene-01): add soil composition`, `fix(core): synchronize scroll progress`, `docs(contract): clarify scene registration`.
+- Mudança no contrato exige PR próprio, justificativa de compatibilidade e aprovação do responsável do projeto.
 
-## 9. Arquivos protegidos
+## 10. Superfícies protegidas
 
-Assinaturas de `src/scenes/types.ts`, estado público do store, semântica de progress 0..1, ordem/IDs do catálogo e API do SceneManager são superfícies protegidas. Mudança somente via issue + PR de contrato, com aviso explícito ao responsável.
+São superfícies protegidas: os tipos deste documento, `SceneProps.progress` normalizado, estado público do Zustand, IDs e ordem da narrativa, catálogo central, API do SceneManager e contrato do painel debug. Mudanças incompatíveis exigem revisão explícita antes de qualquer agente atualizar sua cena.
