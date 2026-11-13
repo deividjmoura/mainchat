@@ -8,8 +8,8 @@ export type TransitionState = {mode: TransitionMode; opacity: number} | null;
 export const sceneTransitions: Record<string, TransitionMode> = {
   '01-terra->02-cogumelo': 'dissolve',
   '02-cogumelo->03-mao-boca': 'fade-through-black',
-  '03-limiar->04-veias': 'crossfade',
-  '04-circulacao->05-cerebro': 'dissolve'
+  '03-mao-boca->04-veias': 'crossfade',
+  '04-veias->05-cerebro': 'dissolve'
 };
 
 export function getTransitionState(sceneId: string, progress: number): TransitionState {
