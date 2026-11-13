@@ -9,6 +9,7 @@ import { createVascularSpline } from './splineData';
 import { VesselTunnel } from './VesselTunnel';
 import { BloodCells } from './BloodCells';
 import { BodyMiniMap } from './BodyMiniMap';
+import { useManagedDisposable } from './useSceneResources';
 
 function clamp(v: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, v));
@@ -54,6 +55,25 @@ export function Component({ progress }: SceneProps) {
 
   const spline = useMemo(() => createVascularSpline(), []);
   const endPoint = useMemo(() => spline.getPointAt(0.998), [spline]);
+
+  const exitHalo = useManagedDisposable(
+    () => ({
+      geo: new THREE.SphereGeometry(1.4, 20, 20),
+      mat: new THREE.MeshBasicMaterial({
+        color: '#67e8f9',
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    }),
+    (res) => {
+      res.geo.dispose();
+      res.mat.dispose();
+    },
+    []
+  );
 
   const colorStops = useMemo(
     () => ({
@@ -183,11 +203,10 @@ export function Component({ progress }: SceneProps) {
       forwardLightRef.current.color.set(conv > 0.5 ? '#38bdf8' : '#a855f7');
     }
 
-    if (exitHaloRef.current) {
+    if (exitHaloRef.current && exitHalo) {
       const reveal = smoothstep(0.88, 1.0, smoothP);
       exitHaloRef.current.scale.setScalar(0.6 + reveal * 1.7);
-      const mat = exitHaloRef.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = reveal * 0.42;
+      exitHalo.mat.opacity = reveal * 0.42;
     }
   });
 
@@ -225,17 +244,13 @@ export function Component({ progress }: SceneProps) {
             reducedMotion={cfg.reducedMotion}
           />
 
-          <mesh ref={exitHaloRef} position={[endPoint.x, endPoint.y, endPoint.z - 2.2]}>
-            <sphereGeometry args={[1.4, 20, 20]} />
-            <meshBasicMaterial
-              color="#67e8f9"
-              transparent
-              opacity={0}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-              toneMapped={false}
+          {exitHalo && (
+            <mesh
+              ref={exitHaloRef}
+              args={[exitHalo.geo, exitHalo.mat]}
+              position={[endPoint.x, endPoint.y, endPoint.z - 2.2]}
             />
-          </mesh>
+          )}
         </>
       )}
 

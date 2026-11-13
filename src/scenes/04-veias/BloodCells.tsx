@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { erythrocyteFragmentShader, erythrocyteVertexShader } from './shaders';
 import { VESSEL_RADIUS } from './splineData';
+import { useManagedDisposable } from './useSceneResources';
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - edge0) / Math.max(1e-6, edge1 - edge0)));
@@ -145,7 +146,6 @@ export function BloodCells({
   reducedMotion,
 }: BloodCellsProps) {
   const rbcMeshRef = useRef<THREE.InstancedMesh>(null);
-  const rbcMatRef = useRef<THREE.ShaderMaterial>(null);
   const wbcMeshRef = useRef<THREE.InstancedMesh>(null);
   const molCoreRef = useRef<THREE.InstancedMesh>(null);
   const molHaloRef = useRef<THREE.InstancedMesh>(null);
@@ -153,50 +153,103 @@ export function BloodCells({
 
   const lookup = useMemo(() => buildSplineLookupTable(spline, 512), [spline]);
 
-  const rbcGeo = useMemo(() => {
-    const geo = createBiconcaveErythrocyteGeometry(16, 7);
-    const meta = new Float32Array(erythrocyteCount * 3);
-    for (let i = 0; i < erythrocyteCount; i++) {
-      meta[i * 3] = (i * 0.6180339887) % 1;
-      meta[i * 3 + 1] = (i * 0.381966) % 1;
-      meta[i * 3 + 2] = 1.0;
-    }
-    geo.setAttribute('aCellMeta', new THREE.InstancedBufferAttribute(meta, 3));
-    return geo;
-  }, [erythrocyteCount]);
+  const resources = useManagedDisposable(
+    () => {
+      const rbcGeo = createBiconcaveErythrocyteGeometry(16, 7);
+      const meta = new Float32Array(erythrocyteCount * 3);
+      for (let i = 0; i < erythrocyteCount; i++) {
+        meta[i * 3] = (i * 0.6180339887) % 1;
+        meta[i * 3 + 1] = (i * 0.381966) % 1;
+        meta[i * 3 + 2] = 1.0;
+      }
+      rbcGeo.setAttribute('aCellMeta', new THREE.InstancedBufferAttribute(meta, 3));
 
-  const wbcGeo = useMemo(() => createLeukocyteGeometry(), []);
-  const molCoreGeo = useMemo(() => new THREE.OctahedronGeometry(0.068, 1), []);
-  const molHaloGeo = useMemo(() => new THREE.SphereGeometry(0.165, 12, 12), []);
+      const rbcMat = new THREE.ShaderMaterial({
+        vertexShader: erythrocyteVertexShader,
+        fragmentShader: erythrocyteFragmentShader,
+        uniforms: {
+          uProgress: { value: 0 },
+          uHeartbeat: { value: 0 },
+          uMotionStretch: { value: 0 },
+          uLightDir: { value: new THREE.Vector3(0.3, 0.7, 0.6).normalize() },
+          uFogColor: { value: new THREE.Color('#0a0403') },
+          uFogDensity: { value: 0.055 },
+        },
+      });
 
-  const plasmaGeo = useMemo(() => {
-    const positions = new Float32Array(plasmaCount * 3);
-    for (let i = 0; i < plasmaCount; i++) {
-      const s = ((i * 97531) % 10000) / 10000;
-      const frame = lookup[Math.min(lookup.length - 1, Math.floor(s * (lookup.length - 1)))];
-      const r = (0.1 + 0.82 * (((i * 31337) % 1000) / 1000)) * (VESSEL_RADIUS - 0.24);
-      const ang = i * 2.39996;
-      const cosA = Math.cos(ang) * r;
-      const sinA = Math.sin(ang) * r;
-      positions[i * 3] = frame.pos.x + frame.normal.x * cosA + frame.binormal.x * sinA;
-      positions[i * 3 + 1] = frame.pos.y + frame.normal.y * cosA + frame.binormal.y * sinA;
-      positions[i * 3 + 2] = frame.pos.z + frame.normal.z * cosA + frame.binormal.z * sinA;
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    return g;
-  }, [plasmaCount, lookup]);
+      const wbcGeo = createLeukocyteGeometry();
+      const wbcMat = new THREE.MeshStandardMaterial({
+        color: '#d4e0f5',
+        emissive: '#32416b',
+        emissiveIntensity: 0.42,
+        roughness: 0.38,
+        transparent: true,
+        opacity: 0.85,
+      });
 
-  // Liberação explícita de recursos imperativos Three.js conforme docs/CONTRACT.md §7
-  useEffect(() => {
-    return () => {
-      rbcGeo.dispose();
-      wbcGeo.dispose();
-      molCoreGeo.dispose();
-      molHaloGeo.dispose();
-      plasmaGeo.dispose();
-    };
-  }, [rbcGeo, wbcGeo, molCoreGeo, molHaloGeo, plasmaGeo]);
+      const molCoreGeo = new THREE.OctahedronGeometry(0.068, 1);
+      const molCoreMat = new THREE.MeshBasicMaterial({ toneMapped: false });
+
+      const molHaloGeo = new THREE.SphereGeometry(0.165, 12, 12);
+      const molHaloMat = new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0.36,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      });
+
+      const positions = new Float32Array(plasmaCount * 3);
+      for (let i = 0; i < plasmaCount; i++) {
+        const s = ((i * 97531) % 10000) / 10000;
+        const frame = lookup[Math.min(lookup.length - 1, Math.floor(s * (lookup.length - 1)))];
+        const r = (0.1 + 0.82 * (((i * 31337) % 1000) / 1000)) * (VESSEL_RADIUS - 0.24);
+        const ang = i * 2.39996;
+        const cosA = Math.cos(ang) * r;
+        const sinA = Math.sin(ang) * r;
+        positions[i * 3] = frame.pos.x + frame.normal.x * cosA + frame.binormal.x * sinA;
+        positions[i * 3 + 1] = frame.pos.y + frame.normal.y * cosA + frame.binormal.y * sinA;
+        positions[i * 3 + 2] = frame.pos.z + frame.normal.z * cosA + frame.binormal.z * sinA;
+      }
+      const plasmaGeo = new THREE.BufferGeometry();
+      plasmaGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const plasmaMat = new THREE.PointsMaterial({
+        color: '#f6c177',
+        size: 0.045,
+        transparent: true,
+        opacity: 0.36,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        sizeAttenuation: true,
+      });
+
+      return {
+        rbcGeo,
+        rbcMat,
+        wbcGeo,
+        wbcMat,
+        molCoreGeo,
+        molCoreMat,
+        molHaloGeo,
+        molHaloMat,
+        plasmaGeo,
+        plasmaMat,
+      };
+    },
+    (res) => {
+      res.rbcGeo.dispose();
+      res.rbcMat.dispose();
+      res.wbcGeo.dispose();
+      res.wbcMat.dispose();
+      res.molCoreGeo.dispose();
+      res.molCoreMat.dispose();
+      res.molHaloGeo.dispose();
+      res.molHaloMat.dispose();
+      res.plasmaGeo.dispose();
+      res.plasmaMat.dispose();
+    },
+    [erythrocyteCount, plasmaCount, lookup]
+  );
 
   const rbcSeeds = useMemo(
     () =>
@@ -240,18 +293,6 @@ export function BloodCells({
     [psilocinCount]
   );
 
-  const rbcUniforms = useMemo(
-    () => ({
-      uProgress: { value: 0 },
-      uHeartbeat: { value: 0 },
-      uMotionStretch: { value: 0 },
-      uLightDir: { value: new THREE.Vector3(0.3, 0.7, 0.6).normalize() },
-      uFogColor: { value: new THREE.Color('#090306') },
-      uFogDensity: { value: 0.055 },
-    }),
-    []
-  );
-
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const tmpColor = useMemo(() => new THREE.Color(), []);
   const prodrugColor = useMemo(() => new THREE.Color('#9f67ff').multiplyScalar(1.6), []);
@@ -259,6 +300,7 @@ export function BloodCells({
   const bbbFlashColor = useMemo(() => new THREE.Color('#7dd3fc').multiplyScalar(2.1), []);
 
   useLayoutEffect(() => {
+    if (!resources) return;
     if (rbcMeshRef.current) rbcMeshRef.current.frustumCulled = false;
     if (wbcMeshRef.current) wbcMeshRef.current.frustumCulled = false;
     if (molCoreRef.current) {
@@ -275,10 +317,10 @@ export function BloodCells({
       }
       if (molHaloRef.current.instanceColor) molHaloRef.current.instanceColor.needsUpdate = true;
     }
-  }, [psilocinCount, prodrugColor]);
+  }, [resources, psilocinCount, prodrugColor]);
 
   useFrame(({ clock }, delta) => {
-    if (!isActiveRef.current) return;
+    if (!isActiveRef.current || !resources) return;
     const dt = Math.min(delta, 0.05);
     const t = clock.getElapsedTime();
     const p = progressRef.current;
@@ -289,15 +331,13 @@ export function BloodCells({
     flowPhaseRef.current += dt * (0.014 + hb * 0.022) * motionFactor;
     const flowPhase = flowPhaseRef.current;
 
-    if (rbcMatRef.current) {
-      rbcMatRef.current.uniforms.uProgress.value = p;
-      rbcMatRef.current.uniforms.uHeartbeat.value = hb;
-      rbcMatRef.current.uniforms.uMotionStretch.value = reducedMotion
-        ? 0
-        : Math.min(1.5, vel * 1.3 + hb * 0.35);
-      rbcMatRef.current.uniforms.uFogColor.value.copy(fogColorRef.current);
-      rbcMatRef.current.uniforms.uFogDensity.value = fogDensityRef.current;
-    }
+    resources.rbcMat.uniforms.uProgress.value = p;
+    resources.rbcMat.uniforms.uHeartbeat.value = hb;
+    resources.rbcMat.uniforms.uMotionStretch.value = reducedMotion
+      ? 0
+      : Math.min(1.5, vel * 1.3 + hb * 0.35);
+    resources.rbcMat.uniforms.uFogColor.value.copy(fogColorRef.current);
+    resources.rbcMat.uniforms.uFogDensity.value = fogDensityRef.current;
 
     const sampleFrame = (s: number): FrameSample => {
       const idx = Math.floor(Math.min(0.9999, Math.max(0, s)) * (lookup.length - 1));
@@ -406,53 +446,27 @@ export function BloodCells({
     }
   });
 
+  if (!resources) return null;
+
   return (
     <group>
-      <instancedMesh ref={rbcMeshRef} args={[rbcGeo, undefined, erythrocyteCount]}>
-        <shaderMaterial
-          ref={rbcMatRef}
-          vertexShader={erythrocyteVertexShader}
-          fragmentShader={erythrocyteFragmentShader}
-          uniforms={rbcUniforms}
-        />
-      </instancedMesh>
-
-      <instancedMesh ref={wbcMeshRef} args={[wbcGeo, undefined, leukocyteCount]}>
-        <meshStandardMaterial
-          color="#d4e0f5"
-          emissive="#32416b"
-          emissiveIntensity={0.42}
-          roughness={0.38}
-          transparent
-          opacity={0.85}
-        />
-      </instancedMesh>
-
-      <instancedMesh ref={molCoreRef} args={[molCoreGeo, undefined, psilocinCount]}>
-        <meshBasicMaterial toneMapped={false} />
-      </instancedMesh>
-
-      <instancedMesh ref={molHaloRef} args={[molHaloGeo, undefined, psilocinCount]}>
-        <meshBasicMaterial
-          transparent
-          opacity={0.36}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </instancedMesh>
-
-      <points geometry={plasmaGeo}>
-        <pointsMaterial
-          color="#f6c177"
-          size={0.045}
-          transparent
-          opacity={0.36}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          sizeAttenuation
-        />
-      </points>
+      <instancedMesh
+        ref={rbcMeshRef}
+        args={[resources.rbcGeo, resources.rbcMat, erythrocyteCount]}
+      />
+      <instancedMesh
+        ref={wbcMeshRef}
+        args={[resources.wbcGeo, resources.wbcMat, leukocyteCount]}
+      />
+      <instancedMesh
+        ref={molCoreRef}
+        args={[resources.molCoreGeo, resources.molCoreMat, psilocinCount]}
+      />
+      <instancedMesh
+        ref={molHaloRef}
+        args={[resources.molHaloGeo, resources.molHaloMat, psilocinCount]}
+      />
+      <points args={[resources.plasmaGeo, resources.plasmaMat]} />
     </group>
   );
 }

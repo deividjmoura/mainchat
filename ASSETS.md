@@ -24,12 +24,14 @@ Além disso, caso `brain.glb` ainda esteja baixando em conexões lentas (ou seja
 Caso deseje **substituir** `brain.glb` por outro modelo anatômico de maior resolução (ex.: exportado do **FreeSurfer**, **Allen Human Brain Atlas** ou **BodyParts3D / Database Center for Life Science — CC BY-SA 2.1 JP**) ou **regerar** o modelo atual, siga esta especificação:
 
 ### 2.1 Nós / Malhas Esperados pelo Loader (`src/scenes/05-cerebro/AnatomicalBrain.tsx`)
-O loader procura malhas (`THREE.Mesh`) com os seguintes nomes:
+O loader inspeciona `obj.name`, `obj.parent?.name` e `obj.userData?.name` (case-insensitive) buscando `EXPECTED_BRAIN_MESH_NAMES` (em `public/assets/05-cerebro/brain.glb`, os 5 nomes já estão gravados tanto em `gltf.nodes[i].name` quanto em `gltf.meshes[i].name`):
 1. **`CerebralCortex`** *(obrigatório)* — superfície pial bilateral (~20k–60k vértices recomendados).
 2. **`Thalamus`** *(opcional; usa fallback se ausente)* — tálamo dorsal bilateral.
 3. **`Hippocampus`** *(opcional)* — formação hipocampal / giro para-hipocampal bilateral.
 4. **`Cerebellum`** *(opcional)* — hemisférios cerebelares + vérmis.
 5. **`Brainstem`** *(opcional)* — ponte / bulbo / mesencéfalo.
+
+Sempre que o fallback procedural entra em ação (no frame inicial enquanto `brain.glb` é carregado em background, em caso de malhas ausentes ou em erro de rede/decoder), `AnatomicalBrain.tsx` registra explicitamente o evento no `console` (`console.info` / `console.warn`).
 
 ### 2.2 Escala e Sistema de Coordenadas (MNI152 → Three.js Y-up)
 As âncoras de câmera (`cameraKeyframes.ts`), os rótulos 3D (`BrainLabels3D.tsx`) e os 25 hubs do conectoma (`ConnectomeArcs.tsx`) usam a conversão estereotáxica MNI152 (em milímetros) para unidades Three.js:

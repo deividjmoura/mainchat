@@ -1,12 +1,12 @@
 import { useMemo, useRef } from 'react';
 import type { MutableRefObject } from 'react';
-import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { MICRO_ANCHOR, mniToBrainSpace, rangeWeight } from './cameraKeyframes';
 import { typography } from '../../design/tokens';
 import type { Quality } from '../../hooks/useQuality';
+import { useDomOverlay, useManagedDisposable } from './useSceneResources';
 
 interface LabelSpec {
   id: string;
@@ -134,6 +134,18 @@ export function BrainLabels3D({
     []
   );
 
+  const dotBundle = useManagedDisposable(
+    () => ({
+      geo: new THREE.SphereGeometry(0.014, 10, 10),
+      mats: labels.map((l) => new THREE.MeshBasicMaterial({ color: l.accent, toneMapped: false })),
+    }),
+    (res) => {
+      res.geo.dispose();
+      for (const m of res.mats) m.dispose();
+    },
+    [labels]
+  );
+
   const domRefs = useRef<Array<HTMLDivElement | null>>([]);
   const dotRefs = useRef<Array<THREE.Mesh | null>>([]);
 
@@ -157,150 +169,150 @@ export function BrainLabels3D({
     }
   });
 
-  if (!isActive) return null;
+  const overlayNode = useMemo(
+    () => (
+      <>
+        {!isWebGL2 && (
+          <div
+            role="img"
+            aria-label="Fallback visual do cérebro sem WebGL2"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1,
+              pointerEvents: 'none',
+              background: '#10101f',
+              display: 'grid',
+              placeItems: 'center',
+            }}
+          >
+            <img
+              src="/assets/05-cerebro/fallback-brain.svg"
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.92 }}
+            />
+          </div>
+        )}
+
+        {isDebug && (
+          <div
+            style={{
+              position: 'fixed',
+              top: '74px',
+              left: '5vw',
+              zIndex: 7,
+              padding: '8px 12px',
+              borderRadius: '10px',
+              background: 'rgba(10, 11, 24, 0.76)',
+              border: '1px solid rgba(155, 141, 224, 0.35)',
+              backdropFilter: 'blur(10px)',
+              fontFamily: typography.body,
+              fontSize: '10px',
+              letterSpacing: '0.08em',
+              color: '#e2e8f0',
+              pointerEvents: 'none',
+            }}
+          >
+            GLB MNI152 (MESHOPT):{' '}
+            <strong style={{ color: glbLoaded ? '#5eead4' : '#fcd34d' }}>
+              {glbLoaded ? '0.69 MB LOADED' : 'FALLBACK PROCEDURAL'}
+            </strong>{' '}
+            • TIER: <strong>{quality.toUpperCase()}</strong> •{' '}
+            <strong>{isWebGL2 ? 'WEBGL2' : 'FALLBACK'}</strong>
+          </div>
+        )}
+      </>
+    ),
+    [isWebGL2, isDebug, glbLoaded, quality]
+  );
+
+  useDomOverlay(isActive && (!isWebGL2 || isDebug), overlayNode);
+
+  if (!isActive || !isWebGL2 || !dotBundle) return null;
 
   return (
     <>
-      {isWebGL2 &&
-        labels.map((lbl, idx) => {
-          const isRight = lbl.direction === 'right';
-          return (
-            <group key={lbl.id} position={lbl.position}>
-              <mesh
+      {labels.map((lbl, idx) => {
+        const isRight = lbl.direction === 'right';
+        return (
+          <group key={lbl.id} position={lbl.position}>
+            <mesh
+              ref={(el) => {
+                dotRefs.current[idx] = el;
+              }}
+              args={[dotBundle.geo, dotBundle.mats[idx]]}
+            />
+
+            <Html center={false} zIndexRange={[10, 0]} style={{ pointerEvents: 'none', userSelect: 'none' }}>
+              <div
                 ref={(el) => {
-                  dotRefs.current[idx] = el;
+                  domRefs.current[idx] = el;
+                }}
+                style={{
+                  display: 'flex',
+                  flexDirection: isRight ? 'row' : 'row-reverse',
+                  alignItems: 'flex-start',
+                  marginLeft: isRight ? '-3px' : '-258px',
+                  marginTop: '-24px',
+                  opacity: 0,
+                  visibility: 'hidden',
+                  fontFamily: typography.body,
                 }}
               >
-                <sphereGeometry args={[0.014, 10, 10]} />
-                <meshBasicMaterial color={lbl.accent} toneMapped={false} />
-              </mesh>
+                <svg width="52" height="28" viewBox="0 0 52 28" style={{ flexShrink: 0 }} aria-hidden="true">
+                  {isRight ? (
+                    <>
+                      <circle cx="3" cy="24" r="2.8" fill={lbl.accent} />
+                      <polyline points="3,24 19,6 50,6" fill="none" stroke={lbl.accent} strokeWidth="1.25" />
+                    </>
+                  ) : (
+                    <>
+                      <circle cx="49" cy="24" r="2.8" fill={lbl.accent} />
+                      <polyline points="49,24 33,6 2,6" fill="none" stroke={lbl.accent} strokeWidth="1.25" />
+                    </>
+                  )}
+                </svg>
 
-              <Html center={false} zIndexRange={[10, 0]} style={{ pointerEvents: 'none', userSelect: 'none' }}>
                 <div
-                  ref={(el) => {
-                    domRefs.current[idx] = el;
-                  }}
                   style={{
-                    display: 'flex',
-                    flexDirection: isRight ? 'row' : 'row-reverse',
-                    alignItems: 'flex-start',
-                    marginLeft: isRight ? '-3px' : '-258px',
-                    marginTop: '-24px',
-                    opacity: 0,
-                    visibility: 'hidden',
-                    fontFamily: typography.body,
+                    width: '206px',
+                    padding: '8px 11px',
+                    borderRadius: '10px',
+                    background: 'rgba(8, 10, 22, 0.82)',
+                    border: `1px solid ${lbl.accent}55`,
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                    boxShadow: '0 10px 26px rgba(0, 0, 0, 0.5)',
                   }}
                 >
-                  <svg width="52" height="28" viewBox="0 0 52 28" style={{ flexShrink: 0 }} aria-hidden="true">
-                    {isRight ? (
-                      <>
-                        <circle cx="3" cy="24" r="2.8" fill={lbl.accent} />
-                        <polyline points="3,24 19,6 50,6" fill="none" stroke={lbl.accent} strokeWidth="1.25" />
-                      </>
-                    ) : (
-                      <>
-                        <circle cx="49" cy="24" r="2.8" fill={lbl.accent} />
-                        <polyline points="49,24 33,6 2,6" fill="none" stroke={lbl.accent} strokeWidth="1.25" />
-                      </>
-                    )}
-                  </svg>
-
-                  <div
+                  <span
                     style={{
-                      width: '206px',
-                      padding: '8px 11px',
-                      borderRadius: '10px',
-                      background: 'rgba(8, 10, 22, 0.82)',
-                      border: `1px solid ${lbl.accent}55`,
-                      backdropFilter: 'blur(10px)',
-                      WebkitBackdropFilter: 'blur(10px)',
-                      boxShadow: '0 10px 26px rgba(0, 0, 0, 0.5)',
+                      display: 'inline-block',
+                      fontSize: '8.5px',
+                      letterSpacing: '0.12em',
+                      padding: '1px 6px',
+                      borderRadius: '999px',
+                      marginBottom: '4px',
+                      color: lbl.badge === 'CONSENSO' ? '#5eead4' : '#fcd34d',
+                      border: `1px solid ${
+                        lbl.badge === 'CONSENSO' ? 'rgba(94,234,212,0.35)' : 'rgba(252,211,77,0.35)'
+                      }`,
                     }}
                   >
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        fontSize: '8.5px',
-                        letterSpacing: '0.12em',
-                        padding: '1px 6px',
-                        borderRadius: '999px',
-                        marginBottom: '4px',
-                        color: lbl.badge === 'CONSENSO' ? '#5eead4' : '#fcd34d',
-                        border: `1px solid ${
-                          lbl.badge === 'CONSENSO' ? 'rgba(94,234,212,0.35)' : 'rgba(252,211,77,0.35)'
-                        }`,
-                      }}
-                    >
-                      {lbl.badge}
-                    </span>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: lbl.accent, marginBottom: '2px' }}>
-                      {lbl.title}
-                    </div>
-                    <div style={{ fontSize: '10.5px', lineHeight: 1.35, color: 'rgba(244,238,229,0.82)' }}>
-                      {lbl.subtitle}
-                    </div>
+                    {lbl.badge}
+                  </span>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: lbl.accent, marginBottom: '2px' }}>
+                    {lbl.title}
+                  </div>
+                  <div style={{ fontSize: '10.5px', lineHeight: 1.35, color: 'rgba(244,238,229,0.82)' }}>
+                    {lbl.subtitle}
                   </div>
                 </div>
-              </Html>
-            </group>
-          );
-        })}
-
-      {typeof document !== 'undefined' &&
-        createPortal(
-          <>
-            {!isWebGL2 && (
-              <div
-                role="img"
-                aria-label="Fallback visual do cérebro sem WebGL2"
-                style={{
-                  position: 'fixed',
-                  inset: 0,
-                  zIndex: 1,
-                  pointerEvents: 'none',
-                  background: '#10101f',
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <img
-                  src="/assets/05-cerebro/fallback-brain.svg"
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.92 }}
-                />
               </div>
-            )}
-
-            {isDebug && (
-              <div
-                style={{
-                  position: 'fixed',
-                  top: '74px',
-                  left: '5vw',
-                  zIndex: 7,
-                  padding: '8px 12px',
-                  borderRadius: '10px',
-                  background: 'rgba(10, 11, 24, 0.76)',
-                  border: '1px solid rgba(155, 141, 224, 0.35)',
-                  backdropFilter: 'blur(10px)',
-                  fontFamily: typography.body,
-                  fontSize: '10px',
-                  letterSpacing: '0.08em',
-                  color: '#e2e8f0',
-                  pointerEvents: 'none',
-                }}
-              >
-                GLB MNI152 (MESHOPT):{' '}
-                <strong style={{ color: glbLoaded ? '#5eead4' : '#fcd34d' }}>
-                  {glbLoaded ? '0.69 MB LOADED' : 'FALLBACK PROCEDURAL'}
-                </strong>{' '}
-                • TIER: <strong>{quality.toUpperCase()}</strong> •{' '}
-                <strong>{isWebGL2 ? 'WEBGL2' : 'FALLBACK'}</strong>
-              </div>
-            )}
-          </>,
-          document.body
-        )}
+            </Html>
+          </group>
+        );
+      })}
     </>
   );
 }

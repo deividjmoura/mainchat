@@ -10,6 +10,7 @@ import { AnatomicalBrain } from './AnatomicalBrain';
 import { NeuronReceptorMicro } from './NeuronReceptorMicro';
 import { ConnectomeArcs } from './ConnectomeArcs';
 import { BrainLabels3D } from './BrainLabels3D';
+import { useManagedDisposable } from './useSceneResources';
 
 export function Component({ progress }: SceneProps) {
   const { camera, scene } = useThree();
@@ -29,27 +30,37 @@ export function Component({ progress }: SceneProps) {
   const smoothPos = useMemo(() => new THREE.Vector3(0, -0.58, 2.68), []);
   const smoothTarget = useMemo(() => new THREE.Vector3(0, -0.58, 0), []);
 
-  const ambientParticlesGeo = useMemo(() => {
-    const count = cfg.ambientParticleCount;
-    const arr = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      const r = 1.6 + (((i * 7919) % 1000) / 1000) * 2.8;
-      const theta = i * 2.39996;
-      const phi = Math.acos(1 - 2 * (((i * 104729) % 1000) / 1000));
-      arr[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      arr[i * 3 + 1] = r * Math.cos(phi);
-      arr[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-    return g;
-  }, [cfg.ambientParticleCount]);
-
-  useEffect(() => {
-    return () => {
-      ambientParticlesGeo.dispose();
-    };
-  }, [ambientParticlesGeo]);
+  const ambientParticles = useManagedDisposable(
+    () => {
+      const count = cfg.ambientParticleCount;
+      const arr = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        const r = 1.6 + (((i * 7919) % 1000) / 1000) * 2.8;
+        const theta = i * 2.39996;
+        const phi = Math.acos(1 - 2 * (((i * 104729) % 1000) / 1000));
+        arr[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        arr[i * 3 + 1] = r * Math.cos(phi);
+        arr[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+      const mat = new THREE.PointsMaterial({
+        color: '#7dd3fc',
+        size: 0.022,
+        transparent: true,
+        opacity: 0.32,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        sizeAttenuation: true,
+      });
+      return { geo, mat };
+    },
+    (res) => {
+      res.geo.dispose();
+      res.mat.dispose();
+    },
+    [cfg.ambientParticleCount]
+  );
 
   useEffect(() => {
     isActiveRef.current = isSceneActive;
@@ -129,17 +140,7 @@ export function Component({ progress }: SceneProps) {
             reducedMotion={cfg.reducedMotion}
           />
 
-          <points geometry={ambientParticlesGeo}>
-            <pointsMaterial
-              color="#7dd3fc"
-              size={0.022}
-              transparent
-              opacity={0.32}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-              sizeAttenuation
-            />
-          </points>
+          {ambientParticles && <points args={[ambientParticles.geo, ambientParticles.mat]} />}
         </>
       )}
 
