@@ -1,6 +1,6 @@
 # Mudanças necessárias fora das pastas de cena (Agente 2)
 
-Base após rebase: `origin/feat/scrollytelling-foundation` @ **d3803ad**.
+Base após rebase: `origin/feat/scrollytelling-foundation` @ **df2257f**.
 Contrato vigente: [`docs/CONTRACT.md`](./CONTRACT.md) v1.0 (congelado).
 
 Meu escopo: `src/scenes/01-terra`, `src/scenes/02-cogumelo`,
@@ -27,20 +27,38 @@ O contrato é explícito: *"O agente da cena não altera o catálogo compartilha
 Ou seja: minhas três cenas compilam, passam no lint e no build, mas **nunca são
 montadas**. O `check:structure` que adicionei falha de propósito enquanto isso durar.
 
+### Evidência de que a cena funciona quando registrada
+
+Apliquei o registro **localmente, só para testar**, e rodei o painel de debug da
+fundação (`?debug=1`, selecionando cada cena):
+
+```
+01-terra      texto: "01 / ORIGEM"            slider: 0.000  viva: true
+02-cogumelo   texto: "02 / DESENVOLVIMENTO"   slider: 0.000  viva: true
+03-mao-boca   texto: "03 / ENCONTRO"          slider: 0.000  viva: true
+erros: (nenhum)
+```
+
+Note `03 / ENCONTRO` — o meu texto. Sem o registro, o mesmo teste mostra
+`03 / O LIMIAR` (o stub). Depois do teste **revertí** o `stubs.tsx`: ele está
+byte-a-byte igual ao da fundação.
+
 ### O que o dono do catálogo precisa fazer (3 linhas)
 
+O padrão já existe no arquivo — 04 e 05 foram registrados assim:
+
 ```diff
-+import {Component as Terra, scene as terraScene} from './01-terra';
-+import {Component as Cogumelo, scene as cogumeloScene} from './02-cogumelo';
-+import {Component as MaoBoca, scene as maoBocaScene} from './03-mao-boca';
- export const scenes:SceneDefinition[]=[
--{id:'01-terra',scrollLength:140,Component:Soil,textBlocks:[...]},
--{id:'02-cogumelo',scrollLength:160,Component:Fungus,textBlocks:[...]},
--{id:'03-mao-boca',scrollLength:115,Component:Threshold,textBlocks:[...]},
-+terraScene,
-+cogumeloScene,
-+maoBocaScene,
+ import { scene04Veias } from './04-veias';
+ import { scene05Cerebro } from './05-cerebro';
++import { scene as terraScene } from './01-terra';
++import { scene as cogumeloScene } from './02-cogumelo';
++import { scene as maoBocaScene } from './03-mao-boca';
 ```
+
+Trocando as três entradas `{id:'01-terra', Component: Soil, ...}`,
+`{id:'02-cogumelo', Component: Fungus, ...}` e
+`{id:'03-mao-boca', Component: Threshold, ...}` por `terraScene`,
+`cogumeloScene` e `maoBocaScene`.
 
 `scene` traz `id`, `scrollLength` e `textBlocks` que eu propus (ver
 `src/scenes/<id>/README.md`). Se o texto narrativo for curadoria do projeto,
@@ -52,31 +70,17 @@ disponíveis como fallback.
 
 ---
 
-## 2. **BLOQUEADOR (pré-existente)** — `NarrativeText` quebra com menos blocos
+## 2. RESOLVIDO PELA FUNDAÇÃO — crash do `NarrativeText`
 
-**Arquivo**: `src/components/NarrativeText.tsx` (dono: Agente base, contrato §4)
+A fundação já corrigiu em `55a673b fix(ui): clamp narrative text block index`:
 
-`index` do bloco sobrevive à troca de cena. Reproduzido **na fundação nova, sem
-nenhum código meu**, navegando pelo painel de debug da própria fundação:
-
-```
-?debug=1  ->  seletor "03-mao-boca"  ->  texto "03 / O LIMIAR"   (3 blocos, ok)
+```ts
+const block = blocks[Math.min(index, blocks.length - 1)] ?? blocks[0];
 ```
 
-O crash aparece quando a cena seguinte tem **menos** blocos que a anterior. Com
-o catálogo atual (2→3→2 blocos) ele não dispara; **com os meus `textBlocks`
-(3→5→2) a cena 03 quebra a página** assim que for registrada. Corrijo meus
-blocos para no máximo 3 enquanto isso? Não — o correto é o clamp.
-
-**Correção** (uma linha, **no render**; em `useEffect` roda tarde demais):
-
-```diff
-- const b=blocks[index];
-+ const b=blocks[Math.min(index,blocks.length-1)];
-```
-
-Está pronta e testada em `docs/patches/apply-0001.sh` (idempotente, valida depois
-de aplicar). Rode `sh docs/patches/apply-0001.sh`.
+Meus `textBlocks` (3 / 5 / 2 blocos) agora são seguros. Nada a fazer; o patch em
+`docs/patches/apply-0001.sh` fica apenas como registro histórico e **não precisa
+ser aplicado** nesta base.
 
 ## 3. ALTERADO — `package.json`: **somente** adições
 
