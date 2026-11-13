@@ -13,7 +13,7 @@ permissions:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -28,5 +28,13 @@ jobs:
         run: pnpm typecheck
       - name: Lint
         run: pnpm lint
+      - name: Validate scene structure
+        run: pnpm check:structure
+      - name: Validate shaders
+        run: pnpm check:glsl
+      - name: Validate geometry and transitions
+        run: pnpm check:geometry
+      - name: Validate scene timelines
+        run: pnpm check:logic
       - name: Production build
         run: pnpm build
