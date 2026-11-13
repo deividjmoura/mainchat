@@ -18,7 +18,7 @@ Atualizado em 2026-11-13.
 
 ## CI — validação automatizada
 
-<badge>GitHub Actions</badge>
+**GitHub Actions**
 
 - [Run #43449020382 — registro das cinco cenas](https://github.com/deividjmoura/mainchat/actions/runs/43449020382): install, typecheck, lint e build passaram.
 - [Run #43449152060 — gates completos](https://github.com/deividjmoura/mainchat/actions/runs/43449152060): install, typecheck, lint, check:structure, check:glsl, check:geometry, check:logic e build passaram.
@@ -35,14 +35,14 @@ Se o lockfile já existe no checkout local do projeto, ele precisa ser commitado
 
 | Verificação | Estado |
 |---|---|
-| Instalação no GitHub Actions | <badge color="success">Passou</badge> |
-| TypeScript | <badge color="success">Passou</badge> |
-| ESLint | <badge color="success">Passou</badge> |
-| Estrutura/registro das cinco cenas | <badge color="success">Passou</badge> |
-| Parser e validação dos shaders | <badge color="success">Passou</badge> |
-| Geometria, enquadramento e continuidade | <badge color="success">Passou</badge> |
-| Timelines | <badge color="success">Passou</badge> |
-| Build de produção | <badge color="success">Passou</badge> |
+| Instalação no GitHub Actions | **Passou** |
+| TypeScript | **Passou** |
+| ESLint | **Passou** |
+| Estrutura/registro das cinco cenas | **Passou** |
+| Parser e validação dos shaders | **Passou** |
+| Geometria, enquadramento e continuidade | **Passou** |
+| Timelines | **Passou** |
+| Build de produção | **Passou** |
 | `pnpm dev` no ambiente local | Pendente |
 | `/?debug=1` no navegador real | Pendente |
 | Console sem erros durante 01→05 e retorno | Não confirmado |
