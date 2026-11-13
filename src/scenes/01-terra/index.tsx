@@ -1,0 +1,1 @@
+export {Soil as Component} from '../stubs';
