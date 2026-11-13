@@ -1,100 +1,86 @@
-# Integração das três cenas (Agente 2)
+# Integração das cinco cenas
 
-## O que foi feito
+## Estado atual
 
-As cenas `01-terra`, `02-cogumelo` e `03-mao-boca` substituíram os stubs de
-mesmo índice em `src/scenes/stubs.tsx`. As cenas `04-circulacao` e `05-cerebro`
-continuam exatamente como estavam.
+As cinco cenas reais estão registradas em `src/scenes/stubs.tsx` (o arquivo mantém esse nome por compatibilidade com os imports existentes, mas agora funciona como catálogo):
+
+1. `01-terra` — solo, serapilheira, raízes, micélio e feixes de luz.
+2. `02-cogumelo` — crescimento, maturação e senescência do corpo frutífero.
+3. `03-mao-boca` — transição conceitual não-instrucional.
+4. `04-veias` — percurso vascular e conversão/distribuição da psilocina.
+5. `05-cerebro` — córtex, receptores, redes neurais e conectoma.
+
+O catálogo importa as definições exportadas por cada pasta. Não contém mais os componentes geométricos de demonstração que existiam na fundação.
+
+## Estrutura
 
 ```
 src/scenes/
-├── _shared/            ← comum às três (não é cena)
-│   ├── math.ts         interpolação pura + RNG determinístico
-│   ├── camera.ts       rig por keyframes, FOV responsivo, roll, tremor de mão
-│   ├── textures.ts     húmus, folhas, casca, pele (canvas 2D)
-│   ├── gl.ts           partículas, filamentos, material do micélio, merge
-│   └── useReducedMotion.ts
-├── 01-terra/           index.tsx (porta) · Terra.tsx · ground.tsx · LightShafts.tsx · README.md
-├── 02-cogumelo/        index.tsx (porta) · Cogumelo.tsx · mushroom.ts · timeline.ts · README.md
-└── 03-mao-boca/        index.tsx (porta) · MaoBoca.tsx · hand.ts · timeline.ts · README.md
+├── _shared/            câmera, shaders utilitários, texturas, matemática e reduced motion
+├── 01-terra/           Terra.tsx, ground.tsx, LightShafts.tsx
+├── 02-cogumelo/        Cogumelo.tsx, mushroom.ts, timeline.ts
+├── 03-mao-boca/        MaoBoca.tsx, hand.ts, timeline.ts
+├── 04-veias/           VesselTunnel.tsx, BloodCells.tsx, BodyMiniMap.tsx
+└── 05-cerebro/         AnatomicalBrain.tsx, NeuronReceptorMicro.tsx,
+                       ConnectomeArcs.tsx, BrainLabels3D.tsx
 ```
 
-Contrato respeitado (v1.0, `docs/CONTRACT.md`): cada pasta exporta `Component`
-pelo `index.tsx` e uma definição `scene` com `id`, `scrollLength` e `textBlocks`.
-**Nenhuma cena cria store, RAF, Lenis ou ScrollTrigger.** Todo estado de animação
-é derivado de `progress.get()` dentro de `useFrame`.
+As cenas 01–03 compartilham utilitários em `_shared/`. As cenas 04–05 têm módulos próprios e documentação dentro das respectivas pastas. O modelo `public/assets/05-cerebro/brain.glb` acompanha fallback procedural caso o carregamento falhe.
 
-O `App` monta a cena ativa e as adjacentes; cada cena verifica a cadeia de
-ancestrais e só dirige a câmera quando está visível, para não disputar o canvas
-com a vizinha.
+## Contrato e registro
 
-## Como ver
+Cada cena exporta uma definição compatível com `SceneDefinition`:
+
+- `id` igual ao ID oficial;
+- `scrollLength` em unidades de viewport;
+- `textBlocks` ordenados por `at` entre 0 e 1;
+- `Component` que recebe o `MotionValue<number>` de progresso.
+
+O catálogo central mantém a ordem narrativa e é consumido pelo `App`, pelo `SceneManager` e pelo cálculo de transições. Nenhuma cena deve criar outra instância de Lenis, ScrollTrigger ou loop de RAF.
+
+## Modo de depuração
+
+Inicie o projeto e abra:
 
 ```bash
-npm install
-npm run dev
-# http://localhost:5173/
+pnpm dev
+# http://localhost:5173/?debug=1
 ```
 
-### Modo de depuração
+O painel da fundação oferece seletor de cena, slider de progresso (0..1), FPS do ticker e nível de qualidade. O teste automatizado `check:structure` também confirma que as cinco cenas estão efetivamente registradas no catálogo.
 
-O painel agora é o **da fundação** (`src/ui/DebugPanel.tsx`, contrato §7):
-
-```
-?debug=1
-```
-
-Dá seletor de cena, slider de progresso (0..1, passo 0,001), FPS do ticker e
-nível de qualidade. **Não usei mais painel próprio:** o `SceneDebug.tsx` que eu
-tinha (com `?cena=` e `?qualidade=`) foi removido — ele chamava `window.scrollTo`,
-o que o contrato §6 proíbe dentro de uma cena.
-
-Para inspecionar uma batida específica: abra `?debug=1`, escolha a cena no
-seletor e arraste o slider (`p=0.1` primórdio, `0.45` caule alongando, `0.7`
-chapéu aberto, `0.92` secagem, `1` colapso).
-
-> **Estado atual:** com o catálogo central ainda apontando para os stubs, o
-> seletor mostra os placeholders, não estas cenas. Ver
-> `docs/REQUESTS-agente2.md` item 1.
-
-## Continuidade entre cenas
-
-Verificado automaticamente por `npm run check:geometry`:
-
-| transição | cor | estado |
-|---|---|---|
-| 01 → 02 | `#0d0a06` nas duas pontas | ✓ |
-| 02 → 03 | `#120d08` nas duas pontas | ✓ |
-| 03 → 04 | 03 fecha em `#0a0403` (primeira cor da 04) | ✓ |
-
-Direção de luz mantida (quente, lateral, vinda da esquerda/alta). A cena 02
-termina no escuro com o corpo seco; a 03 entra no mesmo escuro e a primeira
-coisa que aparece é a sombra da mão.
-
-## Enquadramento responsivo
-
-O `fov` do three é vertical. Em retrato o campo horizontal encolhe ~4× e o
-assunto vaza do quadro — foi o bug mais caro na primeira versão. `_shared/camera.ts`
-mantém o **campo horizontal** constante (limitado a +20° de alargamento) e
-acrescenta um recuo de até 4 cm.
-
-Validado por `check:geometry` em 16:9, 21:9, 4:3, 9:16 e 20:9. O pior
-enquadramento da cena 02 fica em **0,70 do meio-quadro** (1,00 = fora), o que
-deixa ~30% de margem em todas as proporções.
-
-## Verificação
+## Verificações automatizadas
 
 ```bash
-npm run verify
+pnpm install
+pnpm typecheck
+pnpm lint
+pnpm check:structure
+pnpm check:glsl
+pnpm check:geometry
+pnpm check:logic
+pnpm build
 ```
 
-Roda, em ordem: `typecheck` → `lint` → `check:glsl` (19 shaders) →
-`check:geometry` (1.481 asserções) → `check:logic` (34 asserções) → `build`.
+O workflow do GitHub Actions executa todos esses gates em cada push à branch de integração e em PRs para `main`.
 
-| script | o que garante |
+- `check:structure`: contrato das cenas, ordenação dos blocos, IDs e registro no catálogo.
+- `check:glsl`: sintaxe dos shaders e consistência de uniforms.
+- `check:geometry`: enquadramento, keyframes e continuidade entre cenas.
+- `check:logic`: monotonicidade/continuidade das timelines e invariantes geométricas.
+- `build`: TypeScript e bundle de produção.
+
+A validação automatizada passou no run [#43449152060](https://github.com/deividjmoura/mainchat/actions/runs/43449152060). Isso não substitui a validação manual com `pnpm dev`, inspeção do console e teste do painel em navegador real; esses passos continuam pendentes e estão listados em [VALIDATION.md](./VALIDATION.md).
+
+## Continuidade visual
+
+As quatro transições oficiais são:
+
+| Transição | Modo |
 |---|---|
-| `check:glsl` | cada shader tem sintaxe válida (parser real), `#include` correto, uniform declarado = uniform fornecido |
-| `check:structure` | contrato §1/§5/§6/§8: `Component` exportado, nada de `scrollTo`/RAF/ScrollTrigger, `textBlocks` ordenados em 0..1, `scrollLength` positivo — **e se a cena foi realmente registrada no catálogo** |
-| `check:geometry` | keyframes lidos do código-fonte; assunto dentro do quadro nas 5 proporções; câmera não atravessa o modelo; cores de corte batem |
-| `check:logic` | timeline é monótona e contínua (sem "estalo" no scrub), geometria do cogumelo dentro das proporções reais de Agaricales, e a mão **realmente pinça** (pontas a 0,2 mm) sem acumular pose no scroll reverso |
-| `measure:weight` | peso gzip por cena, medido em build de produção |
+| 01-terra → 02-cogumelo | dissolve |
+| 02-cogumelo → 03-mao-boca | fade-through-black |
+| 03-mao-boca → 04-veias | crossfade |
+| 04-veias → 05-cerebro | dissolve |
+
+Os testes de geometria e continuidade são executados automaticamente pelo CI. A inspeção perceptiva das transições em desktop e mobile ainda requer navegador/hardware real.
