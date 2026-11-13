@@ -67,7 +67,7 @@ export default function App(){
     {debug&&<DebugPanel sceneId={active.id} progress={progress} quality={quality} fps={fps} scenes={scenes.map(scene=>({id:scene.id,label:scene.id}))} onSceneChange={selectDebugScene} onProgressChange={setManualProgress}/>}
     <main>
       <section id="intro" className="intro"><p className="eyebrow">BIOLOGIA · FARMACOLOGIA · NEUROCIÊNCIA</p><h1>Tudo começa<br/><em>na terra.</em></h1><p>Uma jornada visual pelas relações entre fungos, moléculas e cérebro.</p><small>ROLE PARA EXPLORAR ↓</small></section>
-      {scenes.map(scene=><section id={'section-'+scene.id} className="scene-section" key={scene.id} style={{minHeight:`${scene.scrollLength}vh`}/>)}
+      {scenes.map(scene=><section id={'section-'+scene.id} className="scene-section" key={scene.id} style={{minHeight:`${scene.scrollLength}vh`}}/>)}
       <section className="outro"><p className="eyebrow">FIM DA JORNADA</p><h2>Conhecer é também<br/><em>reconhecer limites.</em></h2><p>Psilocibina é uma substância psicoativa que pode produzir efeitos intensos e imprevisíveis. Há riscos, interações e contraindicações. Conteúdo educativo; não substitui orientação profissional ou informação médica.</p><small>CONTEÚDO EDUCATIVO · BIOLOGIA E NEUROCIÊNCIA</small><a href="#intro">VOLTAR AO INÍCIO ↑</a></section>
     </main>
   </>;
