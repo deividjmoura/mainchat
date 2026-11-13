@@ -1,1 +1,49 @@
-import {useEffect,useState} from 'react'; import gsap from 'gsap'; import type {MotionValue} from 'motion'; import type {TextBlock} from '../scenes/types'; export default function NarrativeText({progress,blocks}:{progress:MotionValue<number>;blocks:TextBlock[]}){const [index,setIndex]=useState(0);useEffect(()=>{const update=(v:number)=>{let n=0;blocks.forEach((b,i)=>{if(v>=b.at)n=i});setIndex(n)};update(progress.get());return progress.on('change',update)},[blocks,progress]);const b=blocks[index];return <div className="narrative" key={b.title}><div ref={el=>{if(el)gsap.fromTo(el,{y:18,opacity:0},{y:0,opacity:1,duration:.6,ease:'power3.out'})}}><p className="eyebrow">{b.eyebrow}</p><h2>{b.title}</h2><p className="body-copy">{b.body}</p></div></div>}
+import { useEffect, useState } from 'react';
+import gsap from 'gsap';
+import type { MotionValue } from 'motion';
+import type { TextBlock } from '../scenes/types';
+
+type NarrativeTextProps = {
+  progress: MotionValue<number>;
+  blocks: TextBlock[];
+};
+
+export default function NarrativeText({ progress, blocks }: NarrativeTextProps) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const update = (value: number) => {
+      let nextIndex = 0;
+      blocks.forEach((block, blockIndex) => {
+        if (value >= block.at) nextIndex = blockIndex;
+      });
+      setIndex(nextIndex);
+    };
+
+    update(progress.get());
+    return progress.on('change', update);
+  }, [blocks, progress]);
+
+  const block = blocks[Math.min(index, blocks.length - 1)] ?? blocks[0];
+  if (!block) return null;
+
+  return (
+    <div className="narrative" key={block.title}>
+      <div
+        ref={(element) => {
+          if (element) {
+            gsap.fromTo(
+              element,
+              { y: 18, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out' },
+            );
+          }
+        }}
+      >
+        <p className="eyebrow">{block.eyebrow}</p>
+        <h2>{block.title}</h2>
+        <p className="body-copy">{block.body}</p>
+      </div>
+    </div>
+  );
+}
