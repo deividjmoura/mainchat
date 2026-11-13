@@ -35,7 +35,7 @@ Execução observada: [run #32](https://github.com/deividjmoura/mainchat/actions
 | `pnpm lint` | Não executado | Etapa pulada após falha do typecheck |
 | `pnpm build` | Não executado | Etapa pulada após falha do typecheck |
 
-A falha de typecheck foi corrigida em `9a8652ec0001da36c300141ab4f40296d54e57e3`, removendo o parâmetro `index` não utilizado do `forEach`. **A correção ainda não tem uma execução de CI posterior observada**; não declarar typecheck, lint ou build como aprovados.
+A falha de typecheck foi corrigida em `9a8652ec0001da36c300141ab4f40296d54e57e3`, removendo o parâmetro `index` não utilizado do `forEach`. A execução [run #33](https://github.com/deividjmoura/mainchat/actions/runs/43441555283), nesse commit, concluiu com sucesso: install, typecheck, lint e build passaram. A execução do commit seguinte, que atualiza este relatório, ainda estava em andamento no momento desta edição.
 
 A instalação do CI também reportou:
 - aviso de depreciação da versão de ESLint resolvida;
@@ -47,9 +47,9 @@ A instalação do CI também reportou:
 | Verificação | Estado |
 |---|---|
 | Instalação de dependências | Passou no GitHub Actions; falhou localmente por rede |
-| Typecheck | Falhou na execução observada; correção commitada, aguardando nova execução |
-| Lint | Pendente |
-| Build de produção | Pendente |
+| Typecheck | Passou no GitHub Actions run #33 |
+| Lint | Passou no GitHub Actions run #33 |
+| Build de produção | Passou no GitHub Actions run #33 |
 | `pnpm dev` | Pendente |
 | Console do navegador sem erros | Pendente — navegador não foi aberto |
 | Seletor, slider e FPS em `?debug=1` | Implementação inspecionada no código; teste interativo real pendente |
@@ -62,7 +62,7 @@ A instalação do CI também reportou:
 ## Próximos gates obrigatórios
 
 1. Gerar e commitar `pnpm-lock.yaml`; ajustar avisos de dependências/build scripts quando necessário.
-2. Obter uma execução de CI posterior à correção com install, typecheck, lint e build verdes.
+2. Confirmar que a execução de CI do último commit também concluiu verde (run #33 já validou o código no commit imediatamente anterior).
 3. Rodar `pnpm dev`, abrir `/?debug=1` e verificar console sem erros.
 4. Testar seletor, slider e leitura de FPS em navegador real.
 5. Medir FPS, jank e layout shift em hardware/navegador identificados.
