@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -7,6 +7,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { useFrame } from '@react-three/fiber';
 import { corticalSurfaceFragmentShader, corticalSurfaceVertexShader } from './shaders';
 import { clamp, rangeWeight, smoothstep } from './cameraKeyframes';
+import { useManagedDisposable } from './useSceneResources';
 
 export interface BrainGeometries {
   cortex: THREE.BufferGeometry;
@@ -14,6 +15,79 @@ export interface BrainGeometries {
   hippocampus: THREE.BufferGeometry;
   cerebellum: THREE.BufferGeometry;
   brainstem: THREE.BufferGeometry;
+}
+
+export const EXPECTED_BRAIN_MESH_NAMES = [
+  'CerebralCortex',
+  'Thalamus',
+  'Hippocampus',
+  'Cerebellum',
+  'Brainstem',
+] as const;
+
+type ExpectedBrainMeshName = (typeof EXPECTED_BRAIN_MESH_NAMES)[number];
+
+interface GeometrySnapshot {
+  position: Float32Array;
+  normal: Float32Array | null;
+  color: Float32Array | null;
+  colorItemSize: number;
+  index: Uint32Array | Uint16Array | null;
+}
+
+type BrainSnapshotMap = Partial<Record<ExpectedBrainMeshName, GeometrySnapshot>>;
+
+function snapshotBufferGeometry(geo: THREE.BufferGeometry): GeometrySnapshot {
+  const posAttr = geo.getAttribute('position');
+  const normAttr = geo.getAttribute('normal');
+  const colAttr = geo.getAttribute('color');
+  const idxAttr = geo.getIndex();
+
+  const toFloat32 = (attr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute): Float32Array => {
+    if (attr.array instanceof Float32Array) {
+      return attr.array.slice();
+    }
+    const out = new Float32Array(attr.count * attr.itemSize);
+    for (let i = 0; i < attr.count; i++) {
+      for (let k = 0; k < attr.itemSize; k++) {
+        out[i * attr.itemSize + k] = attr.getComponent(i, k);
+      }
+    }
+    return out;
+  };
+
+  let indexCopy: Uint32Array | Uint16Array | null = null;
+  if (idxAttr) {
+    if (idxAttr.array instanceof Uint32Array) indexCopy = idxAttr.array.slice();
+    else if (idxAttr.array instanceof Uint16Array) indexCopy = idxAttr.array.slice();
+    else indexCopy = Uint32Array.from(idxAttr.array as ArrayLike<number>);
+  }
+
+  return {
+    position: toFloat32(posAttr),
+    normal: normAttr ? toFloat32(normAttr) : null,
+    color: colAttr ? toFloat32(colAttr) : null,
+    colorItemSize: colAttr ? colAttr.itemSize : 4,
+    index: indexCopy,
+  };
+}
+
+function hydrateGeometrySnapshot(snap: GeometrySnapshot): THREE.BufferGeometry {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(snap.position.slice(), 3));
+  if (snap.normal) {
+    geo.setAttribute('normal', new THREE.BufferAttribute(snap.normal.slice(), 3));
+  }
+  if (snap.color) {
+    geo.setAttribute('color', new THREE.BufferAttribute(snap.color.slice(), snap.colorItemSize));
+  }
+  if (snap.index) {
+    geo.setIndex(new THREE.BufferAttribute(snap.index.slice(), 1));
+  }
+  if (!snap.normal) {
+    geo.computeVertexNormals();
+  }
+  return geo;
 }
 
 /**
@@ -112,21 +186,33 @@ function buildProceduralFallbackBrain(): BrainGeometries {
   return { cortex, thalamus, hippocampus, cerebellum, brainstem };
 }
 
-let cachedGlbBrain: BrainGeometries | null = null;
-let pendingGlbPromise: Promise<BrainGeometries | null> | null = null;
+function resolveExpectedMeshName(obj: THREE.Object3D): ExpectedBrainMeshName | null {
+  const candidates = [obj.name, obj.parent?.name, obj.userData?.name];
+  for (const raw of candidates) {
+    if (typeof raw !== 'string' || !raw) continue;
+    for (const expected of EXPECTED_BRAIN_MESH_NAMES) {
+      if (raw === expected || raw.toLowerCase() === expected.toLowerCase()) {
+        return expected;
+      }
+    }
+  }
+  return null;
+}
 
-function lazyLoadCompressedBrainGlb(fallback: BrainGeometries): Promise<BrainGeometries | null> {
-  if (cachedGlbBrain) return Promise.resolve(cachedGlbBrain);
-  if (pendingGlbPromise) return pendingGlbPromise;
+let cachedBrainSnapshots: BrainSnapshotMap | null = null;
+let pendingSnapshotsPromise: Promise<BrainSnapshotMap | null> | null = null;
 
-  pendingGlbPromise = MeshoptDecoder.ready
+function lazyLoadCompressedBrainSnapshots(): Promise<BrainSnapshotMap | null> {
+  if (cachedBrainSnapshots) return Promise.resolve(cachedBrainSnapshots);
+  if (pendingSnapshotsPromise) return pendingSnapshotsPromise;
+
+  pendingSnapshotsPromise = MeshoptDecoder.ready
     .then(
       () =>
-        new Promise<BrainGeometries | null>((resolve) => {
+        new Promise<BrainSnapshotMap | null>((resolve) => {
           const loader = new GLTFLoader();
           loader.setMeshoptDecoder(MeshoptDecoder);
 
-          // Suporte opcional a DRACOLoader caso o asset seja substituído por versão Draco no futuro
           const draco = new DRACOLoader();
           draco.setDecoderPath('/draco/');
           loader.setDRACOLoader(draco);
@@ -135,42 +221,83 @@ function lazyLoadCompressedBrainGlb(fallback: BrainGeometries): Promise<BrainGeo
             '/assets/05-cerebro/brain.glb',
             (gltf) => {
               draco.dispose();
-              const found: Partial<BrainGeometries> = {};
+              const snapshots: BrainSnapshotMap = {};
+              const disposedTempGeos = new Set<THREE.BufferGeometry>();
+              const disposedTempMats = new Set<THREE.Material>();
+
               gltf.scene.traverse((obj) => {
                 if (obj instanceof THREE.Mesh && obj.geometry) {
-                  const key = obj.name || obj.parent?.name || '';
-                  if (key === 'CerebralCortex') found.cortex = obj.geometry;
-                  else if (key === 'Thalamus') found.thalamus = obj.geometry;
-                  else if (key === 'Hippocampus') found.hippocampus = obj.geometry;
-                  else if (key === 'Cerebellum') found.cerebellum = obj.geometry;
-                  else if (key === 'Brainstem') found.brainstem = obj.geometry;
+                  const matchedName = resolveExpectedMeshName(obj);
+                  if (matchedName && !snapshots[matchedName]) {
+                    snapshots[matchedName] = snapshotBufferGeometry(obj.geometry);
+                  }
+                  if (!disposedTempGeos.has(obj.geometry)) {
+                    disposedTempGeos.add(obj.geometry);
+                    obj.geometry.dispose();
+                  }
+                  const mats = Array.isArray(obj.material)
+                    ? obj.material
+                    : obj.material
+                      ? [obj.material]
+                      : [];
+                  for (const m of mats) {
+                    if (!disposedTempMats.has(m)) {
+                      disposedTempMats.add(m);
+                      m.dispose();
+                    }
+                  }
                 }
               });
 
-              if (found.cortex) {
-                cachedGlbBrain = {
-                  cortex: found.cortex,
-                  thalamus: found.thalamus ?? fallback.thalamus,
-                  hippocampus: found.hippocampus ?? fallback.hippocampus,
-                  cerebellum: found.cerebellum ?? fallback.cerebellum,
-                  brainstem: found.brainstem ?? fallback.brainstem,
-                };
-                resolve(cachedGlbBrain);
-              } else {
+              const missing = EXPECTED_BRAIN_MESH_NAMES.filter((name) => !snapshots[name]);
+              if (!snapshots.CerebralCortex) {
+                pendingSnapshotsPromise = null;
+                console.warn(
+                  '[05-cerebro] Procedural fallback brain active: /assets/05-cerebro/brain.glb did not contain CerebralCortex. Missing:',
+                  missing
+                );
                 resolve(null);
+                return;
               }
+
+              if (missing.length > 0) {
+                console.warn(
+                  '[05-cerebro] /assets/05-cerebro/brain.glb loaded partially; using procedural fallback for missing meshes:',
+                  missing
+                );
+              } else {
+                console.info(
+                  '[05-cerebro] Loaded /assets/05-cerebro/brain.glb — matched all expected meshes:',
+                  EXPECTED_BRAIN_MESH_NAMES
+                );
+              }
+
+              cachedBrainSnapshots = snapshots;
+              resolve(snapshots);
             },
             undefined,
-            () => {
+            (error) => {
               draco.dispose();
+              pendingSnapshotsPromise = null;
+              console.warn(
+                '[05-cerebro] Failed to load /assets/05-cerebro/brain.glb; keeping procedural fallback brain.',
+                error
+              );
               resolve(null);
             }
           );
         })
     )
-    .catch(() => null);
+    .catch((error) => {
+      pendingSnapshotsPromise = null;
+      console.warn(
+        '[05-cerebro] MeshoptDecoder error; keeping procedural fallback brain.',
+        error
+      );
+      return null;
+    });
 
-  return pendingGlbPromise;
+  return pendingSnapshotsPromise;
 }
 
 interface AnatomicalBrainProps {
@@ -186,87 +313,218 @@ export function AnatomicalBrain({
   reducedMotion,
   onGlbLoadedChange,
 }: AnatomicalBrainProps) {
-  const fallbackMeshes = useMemo(() => buildProceduralFallbackBrain(), []);
-  const [glbMeshes, setGlbMeshes] = useState<BrainGeometries | null>(() => cachedGlbBrain);
+  const [snapshots, setSnapshots] = useState<BrainSnapshotMap | null>(() => cachedBrainSnapshots);
 
-  const cortexMatRef = useRef<THREE.ShaderMaterial>(null);
-  const thalamusMatRef = useRef<THREE.MeshStandardMaterial>(null);
-  const hippoMatRef = useRef<THREE.MeshStandardMaterial>(null);
-  const cerebellumMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const fallbackLoggedRef = useRef(false);
   const thalamoLinesRef = useRef<THREE.LineSegments>(null);
   const exitCapillaryRef = useRef<THREE.Group>(null);
 
-  useEffect(() => {
-    let active = true;
-    lazyLoadCompressedBrainGlb(fallbackMeshes).then((res) => {
-      if (!active) return;
-      if (res) {
-        setGlbMeshes(res);
-        onGlbLoadedChange?.(true);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [fallbackMeshes, onGlbLoadedChange]);
-
-  useEffect(() => {
-    return () => {
-      fallbackMeshes.cortex.dispose();
-      fallbackMeshes.thalamus.dispose();
-      fallbackMeshes.hippocampus.dispose();
-      fallbackMeshes.cerebellum.dispose();
-      fallbackMeshes.brainstem.dispose();
-    };
-  }, [fallbackMeshes]);
-
-  const thalamocorticalGeo = useMemo(() => {
-    const origin = new THREE.Vector3(0, -0.04, -0.05);
-    const targets: Array<[number, number, number]> = [
-      [0.45, 0.35, 0.98],
-      [-0.45, 0.35, 0.98],
-      [0.18, 0.12, 1.18],
-      [-0.18, 0.12, 1.18],
-      [0.68, 0.62, 0.12],
-      [-0.68, 0.62, 0.12],
-      [0.72, 0.42, -0.78],
-      [-0.72, 0.42, -0.78],
-      [0.22, 0.08, -1.18],
-      [-0.22, 0.08, -1.18],
-      [0.82, -0.18, -0.15],
-      [-0.82, -0.18, -0.15],
-    ];
-    const pts: number[] = [];
-    for (const [tx, ty, tz] of targets) {
-      pts.push(origin.x, origin.y, origin.z, tx, ty, tz);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-    return g;
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      thalamocorticalGeo.dispose();
-    };
-  }, [thalamocorticalGeo]);
-
-  const cortexUniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uSulcalPulse: { value: 0.85 },
-      uPfcHighlight: { value: 0 },
-      uDmnHighlight: { value: 0 },
-      uDmnDesync: { value: 0 },
-      uGlassFactor: { value: 0 },
-      uMicroDiveFade: { value: 0 },
-      uHyperConnect: { value: 0 },
-    }),
+  const fallbackMeshes = useManagedDisposable(
+    () => buildProceduralFallbackBrain(),
+    (res) => {
+      res.cortex.dispose();
+      res.thalamus.dispose();
+      res.hippocampus.dispose();
+      res.cerebellum.dispose();
+      res.brainstem.dispose();
+    },
     []
   );
 
+  const glbMeshes = useManagedDisposable(
+    () => {
+      if (!snapshots?.CerebralCortex) return null;
+      return {
+        cortex: hydrateGeometrySnapshot(snapshots.CerebralCortex),
+        thalamus: snapshots.Thalamus ? hydrateGeometrySnapshot(snapshots.Thalamus) : null,
+        hippocampus: snapshots.Hippocampus ? hydrateGeometrySnapshot(snapshots.Hippocampus) : null,
+        cerebellum: snapshots.Cerebellum ? hydrateGeometrySnapshot(snapshots.Cerebellum) : null,
+        brainstem: snapshots.Brainstem ? hydrateGeometrySnapshot(snapshots.Brainstem) : null,
+      };
+    },
+    (res) => {
+      if (!res) return;
+      res.cortex.dispose();
+      res.thalamus?.dispose();
+      res.hippocampus?.dispose();
+      res.cerebellum?.dispose();
+      res.brainstem?.dispose();
+    },
+    [snapshots]
+  );
+
+  const materials = useManagedDisposable(
+    () => {
+      const origin = new THREE.Vector3(0, -0.04, -0.05);
+      const targets: Array<[number, number, number]> = [
+        [0.45, 0.35, 0.98],
+        [-0.45, 0.35, 0.98],
+        [0.18, 0.12, 1.18],
+        [-0.18, 0.12, 1.18],
+        [0.68, 0.62, 0.12],
+        [-0.68, 0.62, 0.12],
+        [0.72, 0.42, -0.78],
+        [-0.72, 0.42, -0.78],
+        [0.22, 0.08, -1.18],
+        [-0.22, 0.08, -1.18],
+        [0.82, -0.18, -0.15],
+        [-0.82, -0.18, -0.15],
+      ];
+      const pts: number[] = [];
+      for (const [tx, ty, tz] of targets) {
+        pts.push(origin.x, origin.y, origin.z, tx, ty, tz);
+      }
+      const thalamocorticalGeo = new THREE.BufferGeometry();
+      thalamocorticalGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+
+      const thalamoLineMat = new THREE.LineBasicMaterial({
+        color: '#fde047',
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      });
+
+      const capCylGeo = new THREE.CylinderGeometry(0.42, 0.52, 1.35, 26, 1, true);
+      const capCylMat = new THREE.MeshStandardMaterial({
+        color: '#19214a',
+        emissive: '#38bdf8',
+        emissiveIntensity: 0.75,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.5,
+        depthWrite: false,
+      });
+
+      const capRingGeo = new THREE.TorusGeometry(0.42, 0.018, 10, 36);
+      const capRingMat = new THREE.MeshBasicMaterial({
+        color: '#67e8f9',
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      });
+
+      const thalamusMat = new THREE.MeshStandardMaterial({
+        color: '#fbbf24',
+        emissive: '#f59e0b',
+        emissiveIntensity: 0.35,
+        roughness: 0.28,
+        transparent: true,
+        opacity: 0.5,
+        depthWrite: false,
+        toneMapped: false,
+      });
+
+      const hippoMat = new THREE.MeshStandardMaterial({
+        color: '#e879f9',
+        emissive: '#c084fc',
+        emissiveIntensity: 0.25,
+        roughness: 0.32,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+        toneMapped: false,
+      });
+
+      const cerebellumMat = new THREE.MeshStandardMaterial({
+        color: '#5c4252',
+        emissive: '#1a1630',
+        emissiveIntensity: 0.3,
+        roughness: 0.55,
+        transparent: true,
+        opacity: 0.75,
+        depthWrite: false,
+      });
+
+      const brainstemMat = new THREE.MeshStandardMaterial({
+        color: '#4f3b4c',
+        emissive: '#16142b',
+        emissiveIntensity: 0.25,
+        roughness: 0.55,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+      });
+
+      const cortexMat = new THREE.ShaderMaterial({
+        vertexShader: corticalSurfaceVertexShader,
+        fragmentShader: corticalSurfaceFragmentShader,
+        uniforms: {
+          uTime: { value: 0 },
+          uSulcalPulse: { value: 0.85 },
+          uPfcHighlight: { value: 0 },
+          uDmnHighlight: { value: 0 },
+          uDmnDesync: { value: 0 },
+          uGlassFactor: { value: 0 },
+          uMicroDiveFade: { value: 0 },
+          uHyperConnect: { value: 0 },
+        },
+        transparent: true,
+        depthWrite: false,
+        side: THREE.FrontSide,
+        toneMapped: false,
+      });
+
+      return {
+        thalamocorticalGeo,
+        thalamoLineMat,
+        capCylGeo,
+        capCylMat,
+        capRingGeo,
+        capRingMat,
+        thalamusMat,
+        hippoMat,
+        cerebellumMat,
+        brainstemMat,
+        cortexMat,
+      };
+    },
+    (res) => {
+      res.thalamocorticalGeo.dispose();
+      res.thalamoLineMat.dispose();
+      res.capCylGeo.dispose();
+      res.capCylMat.dispose();
+      res.capRingGeo.dispose();
+      res.capRingMat.dispose();
+      res.thalamusMat.dispose();
+      res.hippoMat.dispose();
+      res.cerebellumMat.dispose();
+      res.brainstemMat.dispose();
+      res.cortexMat.dispose();
+    },
+    []
+  );
+
+  useLayoutEffect(() => {
+    onGlbLoadedChange?.(Boolean(snapshots?.CerebralCortex));
+  }, [snapshots, onGlbLoadedChange]);
+
+  useEffect(() => {
+    let active = true;
+    if (!cachedBrainSnapshots && !fallbackLoggedRef.current) {
+      fallbackLoggedRef.current = true;
+      console.info(
+        '[05-cerebro] Using procedural fallback brain while lazy-loading /assets/05-cerebro/brain.glb'
+      );
+    }
+
+    lazyLoadCompressedBrainSnapshots().then((res) => {
+      if (!active) return;
+      if (res?.CerebralCortex) {
+        setSnapshots(res);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useFrame(({ clock }) => {
-    if (!isActiveRef.current) return;
+    if (!isActiveRef.current || !materials) return;
     const t = reducedMotion ? clock.getElapsedTime() * 0.25 : clock.getElapsedTime();
     const p = progressRef.current;
 
@@ -284,158 +542,66 @@ export function AnatomicalBrain({
       1
     );
 
-    if (cortexMatRef.current) {
-      const u = cortexMatRef.current.uniforms;
-      u.uTime.value = t;
-      u.uSulcalPulse.value = 0.25 + sulcalOverview * 0.95;
-      u.uPfcHighlight.value = pfcW;
-      u.uDmnHighlight.value = dmnW;
-      u.uDmnDesync.value = dmnDesync;
-      u.uGlassFactor.value = glassFactor;
-      u.uMicroDiveFade.value = microDiveW;
-      u.uHyperConnect.value = hyperConnectW;
-    }
+    const u = materials.cortexMat.uniforms;
+    u.uTime.value = t;
+    u.uSulcalPulse.value = 0.25 + sulcalOverview * 0.95;
+    u.uPfcHighlight.value = pfcW;
+    u.uDmnHighlight.value = dmnW;
+    u.uDmnDesync.value = dmnDesync;
+    u.uGlassFactor.value = glassFactor;
+    u.uMicroDiveFade.value = microDiveW;
+    u.uHyperConnect.value = hyperConnectW;
 
-    if (thalamusMatRef.current) {
-      const activeThal = Math.max(thalamusW, hyperConnectW * 0.45);
-      thalamusMatRef.current.emissiveIntensity = 0.3 + activeThal * 2.6;
-      thalamusMatRef.current.opacity = (0.35 + activeThal * 0.62) * (1 - microDiveW * 0.9);
-    }
+    const activeThal = Math.max(thalamusW, hyperConnectW * 0.45);
+    materials.thalamusMat.emissiveIntensity = 0.3 + activeThal * 2.6;
+    materials.thalamusMat.opacity = (0.35 + activeThal * 0.62) * (1 - microDiveW * 0.9);
 
+    materials.thalamoLineMat.opacity = thalamusW * 0.75 * (1 - microDiveW);
     if (thalamoLinesRef.current) {
-      const mat = thalamoLinesRef.current.material as THREE.LineBasicMaterial;
-      mat.opacity = thalamusW * 0.75 * (1 - microDiveW);
-      thalamoLinesRef.current.visible = mat.opacity > 0.01;
+      thalamoLinesRef.current.visible = materials.thalamoLineMat.opacity > 0.01;
     }
 
-    if (hippoMatRef.current) {
-      const activeHippo = Math.max(dmnW * 0.9, hyperConnectW * 0.4);
-      hippoMatRef.current.emissiveIntensity = 0.25 + activeHippo * 2.0;
-      hippoMatRef.current.opacity = (0.28 + activeHippo * 0.6) * (1 - microDiveW * 0.9);
-    }
+    const activeHippo = Math.max(dmnW * 0.9, hyperConnectW * 0.4);
+    materials.hippoMat.emissiveIntensity = 0.25 + activeHippo * 2.0;
+    materials.hippoMat.opacity = (0.28 + activeHippo * 0.6) * (1 - microDiveW * 0.9);
 
-    if (cerebellumMatRef.current) {
-      cerebellumMatRef.current.opacity = (0.82 - glassFactor * 0.52) * (1 - microDiveW * 0.9);
-    }
+    materials.cerebellumMat.opacity = (0.82 - glassFactor * 0.52) * (1 - microDiveW * 0.9);
 
+    const exitFade = 1 - smoothstep(0.01, 0.11, p);
+    materials.capCylMat.opacity = exitFade * 0.5;
+    materials.capRingMat.opacity = exitFade * 0.65;
     if (exitCapillaryRef.current) {
-      const exitFade = 1 - smoothstep(0.01, 0.11, p);
       exitCapillaryRef.current.visible = exitFade > 0.01;
-      exitCapillaryRef.current.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material) {
-          (child.material as THREE.Material & { opacity: number }).opacity = exitFade * 0.5;
-        }
-      });
     }
   });
 
-  const meshes = glbMeshes ?? fallbackMeshes;
+  if (!fallbackMeshes || !materials) return null;
+
+  const cortexGeo = glbMeshes?.cortex ?? fallbackMeshes.cortex;
+  const thalamusGeo = glbMeshes?.thalamus ?? fallbackMeshes.thalamus;
+  const hippocampusGeo = glbMeshes?.hippocampus ?? fallbackMeshes.hippocampus;
+  const cerebellumGeo = glbMeshes?.cerebellum ?? fallbackMeshes.cerebellum;
+  const brainstemGeo = glbMeshes?.brainstem ?? fallbackMeshes.brainstem;
 
   return (
     <group>
-      {/* Boca recuante do capilar cerebral pial em p=0.00..0.11 (saída contínua do vaso da Cena 04) */}
       <group ref={exitCapillaryRef} position={[0, -0.58, 2.25]}>
-        <mesh rotation={[Math.PI * 0.5, 0, 0]}>
-          <cylinderGeometry args={[0.42, 0.52, 1.35, 26, 1, true]} />
-          <meshStandardMaterial
-            color="#19214a"
-            emissive="#38bdf8"
-            emissiveIntensity={0.75}
-            side={THREE.DoubleSide}
-            transparent
-            opacity={0.5}
-            depthWrite={false}
-          />
-        </mesh>
-        <mesh position={[0, 0, -0.55]}>
-          <torusGeometry args={[0.42, 0.018, 10, 36]} />
-          <meshBasicMaterial
-            color="#67e8f9"
-            transparent
-            opacity={0.65}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </mesh>
+        <mesh args={[materials.capCylGeo, materials.capCylMat]} rotation={[Math.PI * 0.5, 0, 0]} />
+        <mesh args={[materials.capRingGeo, materials.capRingMat]} position={[0, 0, -0.55]} />
       </group>
 
-      <mesh geometry={meshes.thalamus} renderOrder={1}>
-        <meshStandardMaterial
-          ref={thalamusMatRef}
-          color="#fbbf24"
-          emissive="#f59e0b"
-          emissiveIntensity={0.35}
-          roughness={0.28}
-          transparent
-          opacity={0.5}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </mesh>
+      <mesh args={[thalamusGeo, materials.thalamusMat]} renderOrder={1} />
 
-      <lineSegments ref={thalamoLinesRef} geometry={thalamocorticalGeo} renderOrder={2}>
-        <lineBasicMaterial
-          color="#fde047"
-          transparent
-          opacity={0}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </lineSegments>
+      <lineSegments
+        ref={thalamoLinesRef}
+        args={[materials.thalamocorticalGeo, materials.thalamoLineMat]}
+        renderOrder={2}
+      />
 
-      <mesh geometry={meshes.hippocampus} renderOrder={1}>
-        <meshStandardMaterial
-          ref={hippoMatRef}
-          color="#e879f9"
-          emissive="#c084fc"
-          emissiveIntensity={0.25}
-          roughness={0.32}
-          transparent
-          opacity={0.35}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </mesh>
-
-      <mesh geometry={meshes.cerebellum} renderOrder={1}>
-        <meshStandardMaterial
-          ref={cerebellumMatRef}
-          color="#5c4252"
-          emissive="#1a1630"
-          emissiveIntensity={0.3}
-          roughness={0.55}
-          transparent
-          opacity={0.75}
-          depthWrite={false}
-        />
-      </mesh>
-
-      <mesh geometry={meshes.brainstem} renderOrder={1}>
-        <meshStandardMaterial
-          color="#4f3b4c"
-          emissive="#16142b"
-          emissiveIntensity={0.25}
-          roughness={0.55}
-          transparent
-          opacity={0.55}
-          depthWrite={false}
-        />
-      </mesh>
-
-      <mesh geometry={meshes.cortex} renderOrder={3}>
-        <shaderMaterial
-          ref={cortexMatRef}
-          vertexShader={corticalSurfaceVertexShader}
-          fragmentShader={corticalSurfaceFragmentShader}
-          uniforms={cortexUniforms}
-          transparent
-          depthWrite={false}
-          side={THREE.FrontSide}
-          toneMapped={false}
-        />
-      </mesh>
+      <mesh args={[hippocampusGeo, materials.hippoMat]} renderOrder={1} />
+      <mesh args={[cerebellumGeo, materials.cerebellumMat]} renderOrder={1} />
+      <mesh args={[brainstemGeo, materials.brainstemMat]} renderOrder={1} />
+      <mesh args={[cortexGeo, materials.cortexMat]} renderOrder={3} />
     </group>
   );
 }

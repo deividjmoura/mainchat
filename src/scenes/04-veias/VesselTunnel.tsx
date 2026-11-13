@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { MutableRefObject } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
@@ -9,6 +9,7 @@ import {
   vesselWallVertexShader,
 } from './shaders';
 import { VESSEL_RADIUS } from './splineData';
+import { useManagedDisposable } from './useSceneResources';
 
 interface VesselTunnelProps {
   spline: THREE.CatmullRomCurve3;
@@ -62,20 +63,85 @@ export function VesselTunnel({
   tubularSegments,
   radialSegments,
 }: VesselTunnelProps) {
-  const wallMatRef = useRef<THREE.ShaderMaterial>(null);
-  const bbbMatRef = useRef<THREE.ShaderMaterial>(null);
+  const bundle = useManagedDisposable(
+    () => {
+      const fallbackTex = createProceduralEndotheliumFallback();
+      const tubeGeo = new THREE.TubeGeometry(spline, tubularSegments, VESSEL_RADIUS, radialSegments, false);
+      const wallMat = new THREE.ShaderMaterial({
+        vertexShader: vesselWallVertexShader,
+        fragmentShader: vesselWallFragmentShader,
+        uniforms: {
+          uEndotheliumMap: { value: fallbackTex as THREE.Texture },
+          uTime: { value: 0 },
+          uProgress: { value: 0 },
+          uHeartbeat: { value: 0 },
+          uReducedMotion: { value: reducedMotion ? 1 : 0 },
+          uFogColor: { value: new THREE.Color('#0a0403') },
+          uFogDensity: { value: 0.055 },
+        },
+        side: THREE.BackSide,
+        transparent: true,
+        depthWrite: false,
+      });
 
-  const fallbackTex = useMemo(() => createProceduralEndotheliumFallback(), []);
+      const bbbGeo = new THREE.PlaneGeometry(VESSEL_RADIUS * 1.9, VESSEL_RADIUS * 1.9, 26, 26);
+      const bbbMat = new THREE.ShaderMaterial({
+        vertexShader: bbbMembraneVertexShader,
+        fragmentShader: bbbMembraneFragmentShader,
+        uniforms: {
+          uTime: { value: 0 },
+          uCrossing: { value: 0 },
+        },
+        side: THREE.DoubleSide,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+      });
+
+      const astroRings = Array.from({ length: 8 }, (_, i) => {
+        const s = 0.81 + i * 0.018;
+        const narrow = smoothstep(0.76, 0.96, s) * 0.34;
+        const radius = VESSEL_RADIUS - narrow - 0.04;
+        return {
+          geo: new THREE.TorusGeometry(radius, 0.022, 8, 40),
+          mat: new THREE.MeshBasicMaterial({
+            color: i % 2 === 0 ? '#38bdf8' : '#818cf8',
+            transparent: true,
+            opacity: 0.34,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            toneMapped: false,
+          }),
+        };
+      });
+
+      return { fallbackTex, tubeGeo, wallMat, bbbGeo, bbbMat, astroRings };
+    },
+    (res) => {
+      res.tubeGeo.dispose();
+      res.wallMat.dispose();
+      res.bbbGeo.dispose();
+      res.bbbMat.dispose();
+      res.fallbackTex.dispose();
+      for (const r of res.astroRings) {
+        r.geo.dispose();
+        r.mat.dispose();
+      }
+    },
+    [spline, tubularSegments, radialSegments]
+  );
 
   useEffect(() => {
-    let disposed = false;
+    if (!bundle) return;
+    let cancelled = false;
     let loadedTex: THREE.Texture | null = null;
     const loader = new THREE.TextureLoader();
 
     loader.load(
       '/assets/04-veias/endothelium-map.png',
       (tex) => {
-        if (disposed) {
+        if (cancelled) {
           tex.dispose();
           return;
         }
@@ -84,9 +150,7 @@ export function VesselTunnel({
         tex.wrapT = THREE.RepeatWrapping;
         tex.anisotropy = 4;
         tex.needsUpdate = true;
-        if (wallMatRef.current) {
-          wallMatRef.current.uniforms.uEndotheliumMap.value = tex;
-        }
+        bundle.wallMat.uniforms.uEndotheliumMap.value = tex;
       },
       undefined,
       () => {
@@ -95,22 +159,14 @@ export function VesselTunnel({
     );
 
     return () => {
-      disposed = true;
-      if (loadedTex) loadedTex.dispose();
-      fallbackTex.dispose();
+      cancelled = true;
+      bundle.wallMat.uniforms.uEndotheliumMap.value = bundle.fallbackTex;
+      if (loadedTex) {
+        loadedTex.dispose();
+        loadedTex = null;
+      }
     };
-  }, [fallbackTex]);
-
-  const tubeGeo = useMemo(
-    () => new THREE.TubeGeometry(spline, tubularSegments, VESSEL_RADIUS, radialSegments, false),
-    [spline, tubularSegments, radialSegments]
-  );
-
-  useEffect(() => {
-    return () => {
-      tubeGeo.dispose();
-    };
-  }, [tubeGeo]);
+  }, [bundle]);
 
   const bbbTransform = useMemo(() => {
     const s = 0.915;
@@ -120,100 +176,52 @@ export function VesselTunnel({
     return { pos, quat };
   }, [spline]);
 
-  const astroRings = useMemo(() => {
+  const astroTransforms = useMemo(() => {
     return Array.from({ length: 8 }, (_, i) => {
       const s = 0.81 + i * 0.018;
       const pos = spline.getPointAt(s);
       const tangent = spline.getTangentAt(s).normalize();
       const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
-      const narrow = smoothstep(0.76, 0.96, s) * 0.34;
-      return { pos, quat, radius: VESSEL_RADIUS - narrow - 0.04 };
+      return { pos, quat };
     });
   }, [spline]);
 
-  const wallUniforms = useMemo(
-    () => ({
-      uEndotheliumMap: { value: fallbackTex as THREE.Texture },
-      uTime: { value: 0 },
-      uProgress: { value: 0 },
-      uHeartbeat: { value: 0 },
-      uReducedMotion: { value: reducedMotion ? 1 : 0 },
-      uFogColor: { value: new THREE.Color('#090306') },
-      uFogDensity: { value: 0.055 },
-    }),
-    [fallbackTex, reducedMotion]
-  );
-
-  const bbbUniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uCrossing: { value: 0 },
-    }),
-    []
-  );
-
   useFrame(({ clock }) => {
-    if (!isActiveRef.current) return;
+    if (!isActiveRef.current || !bundle) return;
     const t = clock.getElapsedTime();
     const p = progressRef.current;
 
-    if (wallMatRef.current) {
-      wallMatRef.current.uniforms.uTime.value = t;
-      wallMatRef.current.uniforms.uProgress.value = p;
-      wallMatRef.current.uniforms.uHeartbeat.value = heartbeatRef.current;
-      wallMatRef.current.uniforms.uReducedMotion.value = reducedMotion ? 1 : 0;
-      wallMatRef.current.uniforms.uFogColor.value.copy(fogColorRef.current);
-      wallMatRef.current.uniforms.uFogDensity.value = fogDensityRef.current;
-    }
+    bundle.wallMat.uniforms.uTime.value = t;
+    bundle.wallMat.uniforms.uProgress.value = p;
+    bundle.wallMat.uniforms.uHeartbeat.value = heartbeatRef.current;
+    bundle.wallMat.uniforms.uReducedMotion.value = reducedMotion ? 1 : 0;
+    bundle.wallMat.uniforms.uFogColor.value.copy(fogColorRef.current);
+    bundle.wallMat.uniforms.uFogDensity.value = fogDensityRef.current;
 
-    if (bbbMatRef.current) {
-      bbbMatRef.current.uniforms.uTime.value = t;
-      bbbMatRef.current.uniforms.uCrossing.value = smoothstep(0.86, 0.95, p);
-    }
+    bundle.bbbMat.uniforms.uTime.value = t;
+    bundle.bbbMat.uniforms.uCrossing.value = smoothstep(0.86, 0.95, p);
   });
+
+  if (!bundle) return null;
 
   return (
     <group>
-      <mesh geometry={tubeGeo}>
-        <shaderMaterial
-          ref={wallMatRef}
-          vertexShader={vesselWallVertexShader}
-          fragmentShader={vesselWallFragmentShader}
-          uniforms={wallUniforms}
-          side={THREE.BackSide}
-          transparent
-          depthWrite={false}
-        />
-      </mesh>
+      <mesh args={[bundle.tubeGeo, bundle.wallMat]} />
 
-      {astroRings.map((ring, idx) => (
-        <mesh key={idx} position={ring.pos} quaternion={ring.quat}>
-          <torusGeometry args={[ring.radius, 0.022, 8, 40]} />
-          <meshBasicMaterial
-            color={idx % 2 === 0 ? '#38bdf8' : '#818cf8'}
-            transparent
-            opacity={0.34}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </mesh>
+      {astroTransforms.map((tr, idx) => (
+        <mesh
+          key={idx}
+          args={[bundle.astroRings[idx].geo, bundle.astroRings[idx].mat]}
+          position={tr.pos}
+          quaternion={tr.quat}
+        />
       ))}
 
-      <mesh position={bbbTransform.pos} quaternion={bbbTransform.quat}>
-        <planeGeometry args={[VESSEL_RADIUS * 1.9, VESSEL_RADIUS * 1.9, 26, 26]} />
-        <shaderMaterial
-          ref={bbbMatRef}
-          vertexShader={bbbMembraneVertexShader}
-          fragmentShader={bbbMembraneFragmentShader}
-          uniforms={bbbUniforms}
-          side={THREE.DoubleSide}
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-          toneMapped={false}
-        />
-      </mesh>
+      <mesh
+        args={[bundle.bbbGeo, bundle.bbbMat]}
+        position={bbbTransform.pos}
+        quaternion={bbbTransform.quat}
+      />
     </group>
   );
 }
