@@ -29,3 +29,10 @@ Qualidade alta/média/baixa estimada por capacidade do dispositivo, tela e prefe
 
 ## Ciência
 Consenso: a psilocibina é convertida em psilocina; a psilocina atua principalmente como agonista parcial de receptores serotoninérgicos 5-HT2A. Há evidências de alterações em circuitos envolvendo córtex pré-frontal e tálamo. A relação causal entre mudanças na rede de modo padrão (DMN), experiência subjetiva e efeitos clínicos permanece em investigação; o texto identifica isso como hipótese.
+
+
+## Estado da fundação
+
+A implementação está em validação. Consulte [docs/CONTRACT.md](docs/CONTRACT.md) para o contrato proposto e [docs/VALIDATION.md](docs/VALIDATION.md) para o estado real dos gates. Não iniciar integração paralela até os testes e medições descritos ali estarem concluídos.
+
+O painel de depuração está disponível com `?debug=1`. Ele permite selecionar uma cena, controlar o progress manualmente e observar FPS estimado pelo ticker e qualidade selecionada.
