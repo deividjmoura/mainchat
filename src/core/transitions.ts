@@ -7,8 +7,8 @@ export type TransitionState = {mode: TransitionMode; opacity: number} | null;
 // of a scene so the scene switch happens under the transition layer.
 export const sceneTransitions: Record<string, TransitionMode> = {
   '01-terra->02-cogumelo': 'dissolve',
-  '02-cogumelo->03-limiar': 'fade-through-black',
-  '03-limiar->04-circulacao': 'crossfade',
+  '02-cogumelo->03-mao-boca': 'fade-through-black',
+  '03-limiar->04-veias': 'crossfade',
   '04-circulacao->05-cerebro': 'dissolve'
 };
 
