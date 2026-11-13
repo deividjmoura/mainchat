@@ -27,7 +27,7 @@ export function useSceneManager({scenes, values, onSceneChange, onProgress, onRe
     gsap.ticker.lagSmoothing(0);
 
     const context = gsap.context(() => {
-      scenes.forEach((scene, index) => {
+      scenes.forEach(scene => {
         const value = values.get(scene.id);
         if (!value) return;
         ScrollTrigger.create({
