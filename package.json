@@ -8,7 +8,13 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -b --pretty",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "check:glsl": "node scripts/check-shaders.mjs",
+    "check:geometry": "node scripts/check-geometry.mjs",
+    "check:logic": "tsx scripts/check-timelines.ts",
+    "check:structure": "node scripts/check-structure.mjs",
+    "measure:weight": "node scripts/measure-weight.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run check:glsl && npm run check:structure && npm run check:geometry && npm run check:logic && npm run build"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.6",
@@ -34,7 +40,9 @@
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^16.5.0",
-    "typescript-eslint": "^8.46.4"
+    "typescript-eslint": "^8.46.4",
+    "@shaderfrog/glsl-parser": "^7.0.1",
+    "tsx": "^4.23.15"
   },
   "packageManager": "pnpm@10.34.5"
 }
