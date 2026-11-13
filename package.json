@@ -1,0 +1,48 @@
+{
+  "name": "terra-em-transito",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc -b --pretty",
+    "lint": "eslint src",
+    "check:glsl": "node scripts/check-shaders.mjs",
+    "check:geometry": "node scripts/check-geometry.mjs",
+    "check:logic": "tsx scripts/check-timelines.ts",
+    "check:structure": "node scripts/check-structure.mjs",
+    "measure:weight": "node scripts/measure-weight.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run check:glsl && npm run check:geometry && npm run check:logic && npm run build"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.6",
+    "@react-three/fiber": "^9.3.0",
+    "@react-three/postprocessing": "^3.0.4",
+    "gsap": "^3.13.0",
+    "lenis": "^1.3.11",
+    "motion": "^12.23.24",
+    "postprocessing": "^6.37.8",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "three": "^0.180.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-react": "^5.0.2",
+    "typescript": "~5.9.2",
+    "vite": "^7.1.7",
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^16.5.0",
+    "typescript-eslint": "^8.46.4",
+    "@shaderfrog/glsl-parser": "^7.0.1",
+    "tsx": "^4.23.15"
+  },
+  "packageManager": "pnpm@10.34.5"
+}

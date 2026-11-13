@@ -1,0 +1,1 @@
+import {create} from 'zustand'; type State={sceneId:string;progress:number;setJourney:(sceneId:string,progress:number)=>void}; export const useJourneyStore=create<State>(set=>({sceneId:'01-terra',progress:0,setJourney:(sceneId,progress)=>set({sceneId,progress})}));

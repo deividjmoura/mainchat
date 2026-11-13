@@ -1,0 +1,1 @@
+import type {MotionValue} from 'motion'; import type {ComponentType} from 'react'; export type TextBlock={at:number;title:string;body:string;eyebrow?:string}; export type SceneProps={progress:MotionValue<number>}; export type SceneDefinition={id:string;scrollLength:number;textBlocks:TextBlock[];Component:ComponentType<SceneProps>};
