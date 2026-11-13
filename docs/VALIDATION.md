@@ -1,72 +1,65 @@
-# Relatório de validação da fundação
+# Relatório de validação da integração
 
-**Estado: BLOQUEADO — não abrir PR de integração nem liberar as cenas definitivas ainda.**  
+**Estado: integração parcial — cenas 04–05 registradas; cenas 01–03 aguardam rebase do Agente 2.**  
 Atualizado em 2026-11-13.
 
-## Evidências executadas
+## Alterações integradas
 
-### Execução local neste ambiente
+- [x] Corrigido o acesso ao bloco narrativo com `blocks[Math.min(index, blocks.length - 1)] ?? blocks[0]`, incluindo guarda para lista vazia.
+- [x] Corrigidas as chaves de transição para os IDs oficiais:
+  - `01-terra->02-cogumelo`
+  - `02-cogumelo->03-mao-boca`
+  - `03-mao-boca->04-veias`
+  - `04-veias->05-cerebro`
+- [x] Integrada a PR [#2 — Agente 3](https://github.com/deividjmoura/mainchat/pull/2), com as cenas 04-veias e 05-cerebro, assets, fallbacks e documentação.
+- [x] Registradas `scene04Veias` e `scene05Cerebro` no catálogo `src/scenes/stubs.tsx`.
+- [x] Preservados os IDs e a ordem narrativa no catálogo.
 
-```text
-$ node --version
-v22.16.0
+## CI
 
-$ corepack --version
-0.32.0
+As execuções abaixo foram observadas no GitHub Actions:
 
-$ corepack prepare pnpm@10.34.5 --activate
-Preparing pnpm@10.34.5 for immediate activation...
-Internal Error: Error when performing the request to
-https://registry.npmjs.org/pnpm/-/pnpm-10.34.5.tgz
-```
+| Commit | Run | Install | Typecheck | Lint | Build |
+|---|---|---|---|---|---|
+| `55a673b` — NarrativeText clamp | [#37](https://github.com/deividjmoura/mainchat/actions/runs/43443768802) | Passou | Passou | Passou | Passou |
+| `c380f44` — transições | [#38](https://github.com/deividjmoura/mainchat/actions/runs/43443776943) | Passou | Passou | Passou | Passou |
+| `657d004` — registro das cenas 04–05 | [#39](https://github.com/deividjmoura/mainchat/actions/runs/43443781367) | Passou | Passou | Passou | Passou |
 
-A instalação local não iniciou: o ambiente isolado não conseguiu baixar pnpm do npm. O clone via Git também não estava disponível por falha de DNS/rede. Por isso, não foi possível abrir `pnpm dev` nem um navegador local para verificar o console.
+Esses resultados validam os commits indicados no CI; não equivalem a teste interativo em navegador.
 
-### GitHub Actions
+## Agente 2 — cenas 01–03
 
-Workflow: `.github/workflows/quality.yml`  
-Execução observada: [run #32](https://github.com/deividjmoura/mainchat/actions/runs/43437617280), commit `f911be6d9d00e397652a8889983779e79639100f`.
+A PR [#1 — cenas 01–03](https://github.com/deividjmoura/mainchat/pull/1) ainda está aberta e não está pronta para integração:
+- branch: `arena/d5315b2f-mainchat`;
+- comparação com a fundação: divergente, 2 commits à frente e 44 atrás;
+- GitHub informa `mergeable: false`.
 
-| Etapa | Resultado | Evidência |
-|---|---|---|
-| Setup pnpm 10.34.5 | Passou | Action instalou pnpm 10.34.5 |
-| `pnpm install --no-frozen-lockfile` | Passou | 240 pacotes adicionados |
-| `pnpm typecheck` | Falhou | `src/core/SceneManager.ts(30,30): TS6133 'index' is declared but its value is never read` |
-| `pnpm lint` | Não executado | Etapa pulada após falha do typecheck |
-| `pnpm build` | Não executado | Etapa pulada após falha do typecheck |
+**Aguardar o rebase do Agente 2 sobre o head atual da `feat/scrollytelling-foundation`.** Depois do rebase, revisar a comparação/PR, integrar os exports reais das cenas 01–03 no catálogo e rodar novamente os gates. Não fazer merge da branch atual enquanto estiver divergente.
 
-A falha de typecheck foi corrigida em `9a8652ec0001da36c300141ab4f40296d54e57e3`, removendo o parâmetro `index` não utilizado do `forEach`. A execução [run #33](https://github.com/deividjmoura/mainchat/actions/runs/43441555283) e a execução mais recente [run #35](https://github.com/deividjmoura/mainchat/actions/runs/43441673015) concluíram com sucesso: install, typecheck, lint e build passaram.
+## Lockfile
 
-A instalação do CI também reportou:
-- aviso de depreciação da versão de ESLint resolvida;
-- script de build de `esbuild` ignorado pelo pnpm 10.34.5;
-- não existe `pnpm-lock.yaml` versionado. A workflow usa `--no-frozen-lockfile`, então a resolução não é reprodutível até adicionar o lockfile.
+A consulta ao conteúdo remoto do GitHub não encontrou `pnpm-lock.yaml` na branch de integração nem nas branches Arena dos Agentes 2 e 3 (API 404). Se o lockfile já existe no ambiente local, ele ainda não está commitado/pushado nesses refs. Confirmar e versionar antes de considerar a instalação reproduzível.
 
-## Matriz de validação
+## Validação local / navegador
 
 | Verificação | Estado |
 |---|---|
-| Instalação de dependências | Passou no GitHub Actions; falhou localmente por rede |
-| Typecheck | Passou no GitHub Actions run #35 |
-| Lint | Passou no GitHub Actions run #35 |
-| Build de produção | Passou no GitHub Actions run #35 |
-| `pnpm dev` | Pendente |
-| Console do navegador sem erros | Pendente — navegador não foi aberto |
-| Seletor, slider e FPS em `?debug=1` | Implementação inspecionada no código; teste interativo real pendente |
-| FPS real / 60 FPS | Pendente; leitura do painel é ticker FPS, não benchmark de GPU |
-| Jank / layout shift | Pendente |
-| Memory leak / dispose | Pendente |
-| Lenis + ScrollTrigger / RAF | Implementado, não validado em runtime |
-| Transições | Parcial: overlay configurável, ainda não é crossfade real entre duas cenas |
+| `pnpm install` local neste ambiente | Bloqueado por falha de rede ao baixar pnpm do npm |
+| Install no GitHub Actions | Passou |
+| Typecheck / lint / build | Passaram nos runs listados acima |
+| `pnpm dev` | Pendente — não foi possível iniciar neste ambiente |
+| `/?debug=1` em navegador real | Pendente |
+| Console sem erros | Não confirmado |
+| Seletor de cena / slider / FPS interativo | Pendente |
+| FPS real, jank, layout shift e memória WebGL | Pendente |
 
-## Próximos gates obrigatórios
+## Próximos passos
 
-1. Gerar e commitar `pnpm-lock.yaml`; ajustar avisos de dependências/build scripts quando necessário.
-2. Confirmar que a execução de CI do commit mais recente concluiu verde (run #35).
-3. Rodar `pnpm dev`, abrir `/?debug=1` e verificar console sem erros.
-4. Testar seletor, slider e leitura de FPS em navegador real.
-5. Medir FPS, jank e layout shift em hardware/navegador identificados.
-6. Repetir montagem/desmontagem e inspecionar memória/recursos WebGL.
-7. Atualizar este relatório com as evidências e só então abrir o PR de integração.
+1. Aguardar o rebase do Agente 2 e confirmar que a PR #1 fica sem divergência/conflitos.
+2. Integrar e registrar as cenas 01–03 conforme o contrato congelado.
+3. Confirmar/commitar o `pnpm-lock.yaml` que esteja disponível localmente.
+4. Reexecutar install, typecheck, lint e build após integração completa.
+5. Rodar `pnpm dev`, abrir `/?debug=1`, exercitar seletor e slider e inspecionar o console do navegador.
+6. Atualizar este relatório com os resultados reais e abrir o PR final para `main`, listando explicitamente o que passou e o que ainda estiver pendente.
 
-**Não afirmar 60 FPS nem console limpo sem medição. Não iniciar integração paralela definitiva até esses gates passarem.**
+**Não declarar console limpo, 60 FPS ou runtime validado sem executar os testes correspondentes.**
