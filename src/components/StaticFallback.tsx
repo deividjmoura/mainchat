@@ -1,0 +1,1 @@
+export default function StaticFallback({label='Visualização simplificada'}:{label?:string}){return <div role="img" aria-label={label} className="static-fallback"><span>◌</span><small>{label}</small></div>}
