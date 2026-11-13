@@ -1,0 +1,1 @@
+export {Fungus as Component} from '../stubs';
