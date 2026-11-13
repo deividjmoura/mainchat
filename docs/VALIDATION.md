@@ -1,65 +1,61 @@
 # Relatório de validação da integração
 
-**Estado: integração parcial — cenas 04–05 registradas; cenas 01–03 aguardam rebase do Agente 2.**  
+**Estado: integração das cinco cenas concluída; validação automatizada aprovada; runtime local/navegador ainda pendente.**  
 Atualizado em 2026-11-13.
 
-## Alterações integradas
+## Integração concluída
 
-- [x] Corrigido o acesso ao bloco narrativo com `blocks[Math.min(index, blocks.length - 1)] ?? blocks[0]`, incluindo guarda para lista vazia.
-- [x] Corrigidas as chaves de transição para os IDs oficiais:
+- [x] Corrigido o acesso narrativo com `blocks[Math.min(index, blocks.length - 1)] ?? blocks[0]`, incluindo guarda para lista vazia.
+- [x] Corrigidas as quatro chaves de transição:
   - `01-terra->02-cogumelo`
   - `02-cogumelo->03-mao-boca`
   - `03-mao-boca->04-veias`
   - `04-veias->05-cerebro`
-- [x] Integrada a PR [#2 — Agente 3](https://github.com/deividjmoura/mainchat/pull/2), com as cenas 04-veias e 05-cerebro, assets, fallbacks e documentação.
-- [x] Registradas `scene04Veias` e `scene05Cerebro` no catálogo `src/scenes/stubs.tsx`.
-- [x] Preservados os IDs e a ordem narrativa no catálogo.
+- [x] Integrada a PR [#2 — Agente 3](https://github.com/deividjmoura/mainchat/pull/2): cenas 04-veias e 05-cerebro.
+- [x] Integrada a PR [#1 — Agente 2](https://github.com/deividjmoura/mainchat/pull/1): cenas 01-terra, 02-cogumelo e 03-mao-boca. O rebase deixou a branch sem divergência antes do merge.
+- [x] Atualizado `src/scenes/stubs.tsx` para registrar as cinco definições reais, na ordem narrativa. Os stubs visuais antigos foram removidos do catálogo.
+- [x] Atualizado o workflow para executar typecheck, lint, estrutura, shaders, geometria/transições, timelines e build.
 
-## CI
+## CI — validação automatizada
 
-As execuções abaixo foram observadas no GitHub Actions:
+<badge>GitHub Actions</badge>
 
-| Commit | Run | Install | Typecheck | Lint | Build |
-|---|---|---|---|---|---|
-| `55a673b` — NarrativeText clamp | [#37](https://github.com/deividjmoura/mainchat/actions/runs/43443768802) | Passou | Passou | Passou | Passou |
-| `c380f44` — transições | [#38](https://github.com/deividjmoura/mainchat/actions/runs/43443776943) | Passou | Passou | Passou | Passou |
-| `657d004` — registro das cenas 04–05 | [#39](https://github.com/deividjmoura/mainchat/actions/runs/43443781367) | Passou | Passou | Passou | Passou |
+- [Run #43449020382 — registro das cinco cenas](https://github.com/deividjmoura/mainchat/actions/runs/43449020382): install, typecheck, lint e build passaram.
+- [Run #43449152060 — gates completos](https://github.com/deividjmoura/mainchat/actions/runs/43449152060): install, typecheck, lint, check:structure, check:glsl, check:geometry, check:logic e build passaram.
 
-Esses resultados validam os commits indicados no CI; não equivalem a teste interativo em navegador.
-
-## Agente 2 — cenas 01–03
-
-A PR [#1 — cenas 01–03](https://github.com/deividjmoura/mainchat/pull/1) ainda está aberta e não está pronta para integração:
-- branch: `arena/d5315b2f-mainchat`;
-- comparação com a fundação: divergente, 2 commits à frente e 44 atrás;
-- GitHub informa `mergeable: false`.
-
-**Aguardar o rebase do Agente 2 sobre o head atual da `feat/scrollytelling-foundation`.** Depois do rebase, revisar a comparação/PR, integrar os exports reais das cenas 01–03 no catálogo e rodar novamente os gates. Não fazer merge da branch atual enquanto estiver divergente.
+O workflow expandido foi executado no commit `c38f683`. O registro das cenas foi validado no commit `da6d6f1`. Os testes automatizados não substituem a inspeção visual e interativa no navegador.
 
 ## Lockfile
 
-A consulta ao conteúdo remoto do GitHub não encontrou `pnpm-lock.yaml` na branch de integração nem nas branches Arena dos Agentes 2 e 3 (API 404). Se o lockfile já existe no ambiente local, ele ainda não está commitado/pushado nesses refs. Confirmar e versionar antes de considerar a instalação reproduzível.
+A árvore GitHub da branch `feat/scrollytelling-foundation` não contém `pnpm-lock.yaml` nem outro lockfile no momento da verificação. A instalação do CI usa `pnpm install --no-frozen-lockfile`, portanto consegue instalar, mas não garante instalação reproduzível por lockfile.
 
-## Validação local / navegador
+Se o lockfile já existe no checkout local do projeto, ele precisa ser commitado e enviado para esta branch antes do merge final. Não foi criado um lockfile artificial.
+
+## Runtime e navegador — pendente
 
 | Verificação | Estado |
 |---|---|
-| `pnpm install` local neste ambiente | Bloqueado por falha de rede ao baixar pnpm do npm |
-| Install no GitHub Actions | Passou |
-| Typecheck / lint / build | Passaram nos runs listados acima |
-| `pnpm dev` | Pendente — não foi possível iniciar neste ambiente |
-| `/?debug=1` em navegador real | Pendente |
-| Console sem erros | Não confirmado |
-| Seletor de cena / slider / FPS interativo | Pendente |
-| FPS real, jank, layout shift e memória WebGL | Pendente |
+| Instalação no GitHub Actions | <badge color="success">Passou</badge> |
+| TypeScript | <badge color="success">Passou</badge> |
+| ESLint | <badge color="success">Passou</badge> |
+| Estrutura/registro das cinco cenas | <badge color="success">Passou</badge> |
+| Parser e validação dos shaders | <badge color="success">Passou</badge> |
+| Geometria, enquadramento e continuidade | <badge color="success">Passou</badge> |
+| Timelines | <badge color="success">Passou</badge> |
+| Build de produção | <badge color="success">Passou</badge> |
+| `pnpm dev` no ambiente local | Pendente |
+| `/?debug=1` no navegador real | Pendente |
+| Console sem erros durante 01→05 e retorno | Não confirmado |
+| Seletor de cena, slider e FPS no painel | Não testados interativamente |
+| FPS real, pior 1%, jank, layout shift e memória WebGL | Não medidos |
+| `pnpm-lock.yaml` commitado | Não encontrado na branch remota |
 
 ## Próximos passos
 
-1. Aguardar o rebase do Agente 2 e confirmar que a PR #1 fica sem divergência/conflitos.
-2. Integrar e registrar as cenas 01–03 conforme o contrato congelado.
-3. Confirmar/commitar o `pnpm-lock.yaml` que esteja disponível localmente.
-4. Reexecutar install, typecheck, lint e build após integração completa.
-5. Rodar `pnpm dev`, abrir `/?debug=1`, exercitar seletor e slider e inspecionar o console do navegador.
-6. Atualizar este relatório com os resultados reais e abrir o PR final para `main`, listando explicitamente o que passou e o que ainda estiver pendente.
+1. Confirmar o lockfile local e enviá-lo à branch, se ainda não estiver commitado.
+2. Rodar `pnpm dev` no CachyOS e abrir `http://localhost:5173/?debug=1`.
+3. Testar seletor, slider, rolagem 01→05 e retorno 05→01.
+4. Inspecionar o console e reportar erros; medir FPS em hardware real.
+5. Atualizar este documento com as evidências locais antes do merge para `main`.
 
-**Não declarar console limpo, 60 FPS ou runtime validado sem executar os testes correspondentes.**
+**Não declarar runtime validado, console limpo ou 60 FPS estáveis sem executar os testes correspondentes.**
