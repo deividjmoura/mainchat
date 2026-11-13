@@ -1,0 +1,1 @@
+export {Threshold as Component} from '../stubs';
