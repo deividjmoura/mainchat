@@ -216,7 +216,7 @@ for (const [id, mod] of Object.entries(MODULE)) {
 }
 // 04/05 são do outro agente: só garantimos que não as tocamos
 const catalog = readFileSync('src/scenes/stubs.tsx', 'utf8');
-check(catalog.includes("'04-veias'") && catalog.includes("'05-cerebro'"), 'cenas 04 e 05 preservadas no catálogo');
+check(/04-veias/.test(catalog) && /05-cerebro/.test(catalog), 'cenas 04 e 05 preservadas no catálogo');
 
 /* -------------------- keyframes monotônicos -------------------- */
 for (const scene of scenes) {
