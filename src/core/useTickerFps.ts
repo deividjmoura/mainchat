@@ -7,7 +7,7 @@ export function useTickerFps() {
   useEffect(()=>{
     let frames=0;
     let elapsed=0;
-    const tick=(delta:number)=>{
+    const tick=(_time:number,delta:number)=>{
       frames++;
       elapsed+=delta;
       if(elapsed>=1000){setFps(Math.round(frames*1000/elapsed));frames=0;elapsed=0;}
