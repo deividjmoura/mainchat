@@ -1,1 +1,1 @@
-export {Soil as Component} from '../stubs';
+export { default as Component, scene } from './Terra';

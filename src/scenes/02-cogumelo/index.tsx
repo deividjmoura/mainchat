@@ -1,1 +1,1 @@
-export {Fungus as Component} from '../stubs';
+export { default as Component, scene } from './Cogumelo';

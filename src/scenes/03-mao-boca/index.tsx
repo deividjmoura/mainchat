@@ -1,1 +1,1 @@
-export {Threshold as Component} from '../stubs';
+export { default as Component, scene } from './MaoBoca';
