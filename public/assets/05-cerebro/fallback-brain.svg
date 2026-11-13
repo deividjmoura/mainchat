@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" fill="none">
+  <defs>
+    <radialGradient id="neuralBg" cx="50%" cy="46%" r="58%">
+      <stop offset="0%" stop-color="#1b1c3a"/>
+      <stop offset="65%" stop-color="#10101f"/>
+      <stop offset="100%" stop-color="#070711"/>
+    </radialGradient>
+  </defs>
+  <rect width="960" height="540" fill="url(#neuralBg)"/>
+  <ellipse cx="480" cy="260" rx="210" ry="150" fill="rgba(155,141,224,0.09)" stroke="#9b8de0" stroke-width="2"/>
+  <path d="M 330 245 Q 480 120 630 240" stroke="#38bdf8" stroke-width="2" opacity="0.8"/>
+  <path d="M 355 310 Q 480 165 605 305" stroke="#c084fc" stroke-width="1.8" opacity="0.75"/>
+  <path d="M 310 275 Q 480 385 650 270" stroke="#2dd4bf" stroke-width="1.6" opacity="0.7"/>
+  <ellipse cx="480" cy="272" rx="46" ry="30" fill="rgba(245,158,11,0.28)" stroke="#f59e0b" stroke-width="1.6"/>
+  <circle cx="625" cy="235" r="10" fill="#38bdf8" opacity="0.85"/>
+  <circle cx="350" cy="235" r="9" fill="#c084fc" opacity="0.85"/>
+</svg>
