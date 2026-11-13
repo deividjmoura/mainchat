@@ -6,7 +6,7 @@ import type {MotionValue} from 'motion';
 import type {SceneDefinition} from '../scenes/types';
 gsap.registerPlugin(ScrollTrigger);
 
-export function useSceneManager({scenes,values,onSceneChange,onProgress,onReady}:{scenes:SceneDefinition[];values:Map<string,MotionValue<number>>;onSceneChange:(scene:SceneDefinition)=>void;onProgress:(id:string,value:number)=>void;onReady:()=>void}) {
+export function useSceneManager({scenes,values,onSceneChange,onProgress,onReady}:{scenes:SceneDefinition[];values:Map<string,MotionValue<number>>;onSceneChange:(scene:SceneDefinition)=>void;onProgress:(id:string,value:number)=>void;onReady:(ready:boolean)=>void}) {
   useEffect(()=>{
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     const lenis=new Lenis({duration:reduced?0:1.1,smoothWheel:!reduced,syncTouch:false});
@@ -27,7 +27,7 @@ export function useSceneManager({scenes,values,onSceneChange,onProgress,onReady}
       });
       ScrollTrigger.refresh();
     });
-    onReady();
+    onReady(true);
     return()=>{context.revert();gsap.ticker.remove(ticker);lenis.destroy()};
   },[scenes,values,onSceneChange,onProgress,onReady]);
 }
