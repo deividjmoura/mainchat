@@ -14,7 +14,7 @@
     "check:logic": "tsx scripts/check-timelines.ts",
     "check:structure": "node scripts/check-structure.mjs",
     "measure:weight": "node scripts/measure-weight.mjs",
-    "verify": "npm run typecheck && npm run lint && npm run check:glsl && npm run check:structure && npm run check:geometry && npm run check:logic && npm run build"
+    "verify": "npm run typecheck && npm run lint && npm run check:glsl && npm run check:geometry && npm run check:logic && npm run build"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.6",

@@ -115,10 +115,10 @@ function parseKeys(file, constName = 'KEYS') {
 }
 
 const scenes = [
-  { id: '01-terra', file: 'src/scenes/01-terra/index.tsx', near: 0.01, subject: 'look' },
+  { id: '01-terra', file: 'src/scenes/01-terra/Terra.tsx', near: 0.01, subject: 'look' },
   {
     id: '02-cogumelo',
-    file: 'src/scenes/02-cogumelo/index.tsx',
+    file: 'src/scenes/02-cogumelo/Cogumelo.tsx',
     near: 0.01,
     /* pontos do cogumelo maduro: base, meio do caule, topo do chapéu, bordas */
     subjectPoints: [
@@ -129,7 +129,7 @@ const scenes = [
       [-0.0235, 0.043, 0.03],
     ],
   },
-  { id: '03-mao-boca', file: 'src/scenes/03-mao-boca/index.tsx', near: 0.01, subject: 'look' },
+  { id: '03-mao-boca', file: 'src/scenes/03-mao-boca/MaoBoca.tsx', near: 0.01, subject: 'look' },
 ];
 
 for (const scene of scenes) {
@@ -193,9 +193,9 @@ const paletteOf = (file) => {
   return { entry, exit };
 };
 
-const p1 = paletteOf('src/scenes/01-terra/index.tsx');
-const p2 = paletteOf('src/scenes/02-cogumelo/index.tsx');
-const p3 = paletteOf('src/scenes/03-mao-boca/index.tsx');
+const p1 = paletteOf('src/scenes/01-terra/Terra.tsx');
+const p2 = paletteOf('src/scenes/02-cogumelo/Cogumelo.tsx');
+const p3 = paletteOf('src/scenes/03-mao-boca/MaoBoca.tsx');
 
 check(!!p1 && !!p2 && !!p3, 'as três cenas declaram PALETTE');
 if (p1 && p2 && p3) {
@@ -206,18 +206,17 @@ if (p1 && p2 && p3) {
 
 /* -------------------- registro das cenas -------------------- */
 const stubs = readFileSync('src/scenes/stubs.tsx', 'utf8');
-// as cenas reais são importadas por módulo (os ids vivem no próprio arquivo)
-for (const [id, mod] of [['01-terra', 'terraScene'], ['02-cogumelo', 'cogumeloScene'], ['03-mao-boca', 'maoBocaScene']]) {
-  check(
-    new RegExp(`import\\s*\\{\\s*scene as ${mod}\\s*\}\\s*from\\s*'\\./${id}'`).test(stubs),
-    `cena ${id} importada em stubs.tsx`,
-  );
-  check(new RegExp(`^${mod},$`, 'm').test(stubs), `${mod} presente no array de cenas`);
-  const src = readFileSync(`src/scenes/${id}/index.tsx`, 'utf8');
-  check(src.includes(`id: '${id}'`), `src/scenes/${id}/index.tsx exporta id '${id}'`);
+// o id da definição vive no módulo da cena (o index.tsx é só o re-export público)
+const MODULE = {'01-terra': 'Terra', '02-cogumelo': 'Cogumelo', '03-mao-boca': 'MaoBoca'};
+for (const [id, mod] of Object.entries(MODULE)) {
+  const src = readFileSync(`src/scenes/${id}/${mod}.tsx`, 'utf8');
+  check(src.includes(`id: '${id}'`), `src/scenes/${id}/${mod}.tsx exporta id '${id}'`);
+  const idx = readFileSync(`src/scenes/${id}/index.tsx`, 'utf8');
+  check(/\bComponent\b/.test(idx), `src/scenes/${id}/index.tsx exporta Component (contrato §5)`);
 }
-check(!stubs.includes("id:'03-limiar'"), 'stub 03-limiar removido do registro');
-check(stubs.includes("'04-circulacao'") && stubs.includes("'05-cerebro'"), 'cenas 04 e 05 preservadas');
+// 04/05 são do outro agente: só garantimos que não as tocamos
+const catalog = readFileSync('src/scenes/stubs.tsx', 'utf8');
+check(catalog.includes("'04-veias'") && catalog.includes("'05-cerebro'"), 'cenas 04 e 05 preservadas no catálogo');
 
 /* -------------------- keyframes monotônicos -------------------- */
 for (const scene of scenes) {

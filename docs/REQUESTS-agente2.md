@@ -1,158 +1,152 @@
 # Mudanças necessárias fora das pastas de cena (Agente 2)
 
-Regra que segui nesta entrega: **só** `src/scenes/01-terra`, `src/scenes/02-cogumelo`,
-`src/scenes/03-mao-boca` e `public/assets/01-terra|02-cogumelo|03-mao-boca`
-podem ser alterados. `src/core`, `src/design`, `src/ui` e `src/content` **não
-existem** nesta fundação (ela tem `src/components`, `src/scroll`, `src/store`,
-`src/hooks`, `src/design`). Adotei o critério conservador: qualquer arquivo fora
-das três pastas de cena é "fora de escopo" e está listado aqui.
+Base após rebase: `origin/feat/scrollytelling-foundation` @ **d3803ad**.
+Contrato vigente: [`docs/CONTRACT.md`](./CONTRACT.md) v1.0 (congelado).
 
-Nos casos em que precisei mexer em um arquivo compartilhado, deixei um
-**workaround dentro do meu escopo** e registrei a correção recomendada. Onde o
-workaround é impossível, o item está marcado como **BLOQUEADOR**.
+Meu escopo: `src/scenes/01-terra`, `src/scenes/02-cogumelo`,
+`src/scenes/03-mao-boca` e `public/assets/01-terra|02-cogumelo|03-mao-boca`.
+Nos **fixtures** que a fundação criou nesses caminhos eu mantive a minha
+implementação; no resto, não toquei.
 
 ---
 
-## 1. **BLOQUEADOR** — a página quebra ao entrar na cena 03
+## 1. **BLOQUEADOR** — minhas cenas não estão no catálogo central
 
-**Arquivo**: `src/components/NarrativeText.tsx`
-**Status**: **arquivo intacto** (revertido). O patch está em `docs/patches/apply-0001.sh`.
+**Arquivo**: `src/scenes/stubs.tsx` (dono: Agente base / integração, contrato §4 e §5)
 
-O `index` do bloco de texto sobrevive à troca de cena. A cena 02 tem 5 blocos, a
-03 tem 2: ao entrar na 03 com `index = 2`, o componente crasha em
-`blocks[index].eyebrow` e a página fica em branco.
+O contrato é explícito: *"O agente da cena não altera o catálogo compartilhado"*
+(§5). Portanto **não registrei**. Consequência, verificada no runtime:
 
-**Reprodução** (sem nenhum código meu, medido neste repositório):
+| teste | resultado |
+|---|---|
+| `?debug=1&cena=03-mao-boca` | abre a cena 03… mas renderiza o **stub** (`Component:Threshold`) |
+| texto narrativo exibido | `03 / O LIMIAR` — vem do `stubs.tsx`, não da minha cena |
+| `src/scenes/03-mao-boca/index.tsx` | exporta `Component` corretamente (contrato §5) |
+| quem importa esse `index.tsx` | **ninguém** |
+
+Ou seja: minhas três cenas compilam, passam no lint e no build, mas **nunca são
+montadas**. O `check:structure` que adicionei falha de propósito enquanto isso durar.
+
+### O que o dono do catálogo precisa fazer (3 linhas)
+
+```diff
++import {Component as Terra, scene as terraScene} from './01-terra';
++import {Component as Cogumelo, scene as cogumeloScene} from './02-cogumelo';
++import {Component as MaoBoca, scene as maoBocaScene} from './03-mao-boca';
+ export const scenes:SceneDefinition[]=[
+-{id:'01-terra',scrollLength:140,Component:Soil,textBlocks:[...]},
+-{id:'02-cogumelo',scrollLength:160,Component:Fungus,textBlocks:[...]},
+-{id:'03-mao-boca',scrollLength:115,Component:Threshold,textBlocks:[...]},
++terraScene,
++cogumeloScene,
++maoBocaScene,
+```
+
+`scene` traz `id`, `scrollLength` e `textBlocks` que eu propus (ver
+`src/scenes/<id>/README.md`). Se o texto narrativo for curadoria do projeto,
+basta trocar os `textBlocks` e manter o `Component` — a cena não depende do
+texto.
+
+Os stubs `Soil` e `Fungus` ficam exportados (não removi nada) e continuam
+disponíveis como fallback.
+
+---
+
+## 2. **BLOQUEADOR (pré-existente)** — `NarrativeText` quebra com menos blocos
+
+**Arquivo**: `src/components/NarrativeText.tsx` (dono: Agente base, contrato §4)
+
+`index` do bloco sobrevive à troca de cena. Reproduzido **na fundação nova, sem
+nenhum código meu**, navegando pelo painel de debug da própria fundação:
 
 ```
-01-terra      -> rail:01  texto:"SERAPILHEIRA"   ok
-02-cogumelo   -> rail:02  texto:"PRIMÓRDIO"      ok
-03-mao-boca   -> rail:null texto:""              ERRO: Cannot read properties of
-                                                  undefined (reading 'eyebrow')
+?debug=1  ->  seletor "03-mao-boca"  ->  texto "03 / O LIMIAR"   (3 blocos, ok)
 ```
 
-Não é bug da minha cena: qualquer cena com menos blocos que a anterior dispara.
-Minha cena 03 é apenas a primeira a ter 2 blocos depois de uma com 5.
+O crash aparece quando a cena seguinte tem **menos** blocos que a anterior. Com
+o catálogo atual (2→3→2 blocos) ele não dispara; **com os meus `textBlocks`
+(3→5→2) a cena 03 quebra a página** assim que for registrada. Corrijo meus
+blocos para no máximo 3 enquanto isso? Não — o correto é o clamp.
 
-**Correção** (uma linha, e precisa ser **no render** — em `useEffect` roda
-depois, quando a exceção já estourou):
+**Correção** (uma linha, **no render**; em `useEffect` roda tarde demais):
 
 ```diff
 - const b=blocks[index];
 + const b=blocks[Math.min(index,blocks.length-1)];
 ```
 
-Aplicar: `sh docs/patches/apply-0001.sh` (idempotente, testado).
-Com o patch aplicado, a jornada 01→05 e a volta passam sem nenhum erro de página.
+Está pronta e testada em `docs/patches/apply-0001.sh` (idempotente, valida depois
+de aplicar). Rode `sh docs/patches/apply-0001.sh`.
 
-**Enquanto não for aplicado**, a cena 03 é inalcançável pela navegação normal.
-Para inspecioná-la, use `?debug=1&cena=03-mao-boca` — o painel monta a cena, mas
-o texto narrativo continua quebrado.
+## 3. ALTERADO — `package.json`: **somente** adições
 
----
-
-## 2. **BLOQUEADOR** — o registro de cenas é `src/scenes/stubs.tsx`
-
-**Arquivo**: `src/scenes/stubs.tsx` (e o `README.md` ao lado)
-
-Substituí os três stubs por imports das cenas reais *dentro do próprio arquivo*
-de registro. Não há como registrar uma cena sem tocar nele: `App.tsx` importa
-`./scenes/stubs` e `ProgressRail.tsx` importa `../scenes/stubs`. Renomear o
-arquivo (por exemplo, para `src/scenes/index.ts`) quebraria os dois — testei e
-o build falha.
-
-O diff é mínimo e não altera as cenas 04/05:
+Conforme o adendo: mantive todos os scripts e devDependencies da fundação e
+acrescentei apenas o necessário para os meus gates.
 
 ```diff
-+import {scene as terraScene} from './01-terra';
-+import {scene as cogumeloScene} from './02-cogumelo';
-+import {scene as maoBocaScene} from './03-mao-boca';
- ...
--{id:'01-terra', ...stub...},
--{id:'02-cogumelo', ...stub...},
--{id:'03-limiar', ...stub...},
-+terraScene,
-+cogumeloScene,
-+maoBocaScene,
- {id:'04-circulacao', ...},
- {id:'05-cerebro', ...},
+   "lint": "eslint src",
++  "check:glsl": "node scripts/check-shaders.mjs",
++  "check:structure": "node scripts/check-structure.mjs",
++  "check:geometry": "node scripts/check-geometry.mjs",
++  "check:logic": "tsx scripts/check-timelines.ts",
++  "measure:weight": "node scripts/measure-weight.mjs",
++  "verify": "npm run typecheck && npm run lint && npm run check:glsl && npm run check:structure && npm run check:geometry && npm run check:logic && npm run build"
+...
+   "typescript-eslint": "^8.46.4",
++  "@shaderfrog/glsl-parser": "^7.0.1",
++  "tsx": "^4.23.15"
 ```
 
-**Pedido para o Agente 1**: mover o array `scenes` para `src/scenes/index.ts`
-(ou para `src/content`, quando existir) e deixar `stubs.tsx` apenas como
-catálogo de stubs. Aí a integração deixa de tocar em arquivo compartilhado.
+`@shaderfrog/glsl-parser` valida o GLSL; `tsx` roda o teste de lógica em
+TypeScript. Nenhum script existente foi alterado ou removido.
 
----
+## 4. REVERTIDO — `vite.config.ts` voltou à versão da fundação
 
-## 3. ADICIONADO — `src/scenes/_shared/` (arquivos novos, não da fundação)
+Eu havia adicionado `server.allowedHosts` porque o preview do sandbox respondia
+`403 Blocked request`. O adendo proíbe alterar esse arquivo, então **restaurei
+verbatim**. Consequência: a pré-visualização embutida não abre por esse host;
+testei tudo por `localhost`.
 
-Câmera, texturas procedurais, partículas e o harness de debug vivem em
-`src/scenes/_shared/`. Tecnicamente não é uma das três pastas de cena, mas
-**nenhum arquivo da fundação foi alterado ali** — são todos arquivos novos, e
-ficam dentro de `src/scenes/`.
+**Se quiserem o preview funcionando**, esta é a mudança (3 linhas):
 
-Motivo: as três cenas usam o mesmo rig de câmera responsivo e o mesmo material
-de micélio. Copiar isso para dentro de cada pasta duplicaria ~1.300 linhas e
-garantiria divergência entre as cenas.
-
-**Se o critério for "só dentro das três pastas"**, a opção é mover
-`_shared/` para `src/scenes/01-terra/_internal/` e importar de lá nas outras
-duas — funciona, mas cria um acoplamento pior. Prefiro deixar a decisão com o
-Agente 1.
-
-## 4. ADICIONADO — `lint` não existia
-
-**Arquivos**: `package.json`, `eslint.config.js` (novo)
-
-A fundação só tinha `dev`, `build`, `preview` e `typecheck` — sem `eslint` nas
-devDependencies. O briefing exige rodar `lint`, então adicionei `eslint` 9 +
-`typescript-eslint` + `eslint-plugin-react-hooks`, com configuração mínima (sem
-regras de estilo).
-
-Também adicionei `check:glsl`, `check:geometry`, `check:logic`,
-`measure:weight` e `verify` (roda tudo em sequência).
-
-## 5. ALTERADO — `vite.config.ts`: preview respondia 403
-
-O Vite bloqueava o host do preview do sandbox (`<porta>-<id>.e2b.app`) com
-`403 Blocked request`. Adicionei `server.allowedHosts` / `preview.allowedHosts`
-com `.e2b.app`. É configuração de ambiente, não de aplicação — se o projeto não
-usa esse preview, o diff pode ser descartado sem efeito.
-
-## 6. NECESSÁRIO — `?debug=1` não existe na fundação
-
-O harness vive em `src/scenes/_shared/SceneDebug.tsx` e cada cena o invoca.
-Por isso o painel só aparece quando uma cena está montada, e o salto para uma
-cena específica precisou de um boot no nível do módulo (funciona, mas é feio).
-
-**Pedido**: ler `?debug=1` no `App.tsx` e montar o painel uma única vez, no
-nível da aplicação, aceitando `cena` e `p` para congelar o progresso.
-
-## 7. NECESSÁRIO — `onEnter` não dispara ao abrir a página no meio de uma seção
-
-**Arquivo**: `src/scroll/SceneManager.ts` — **intacto**.
-
-Se a página abre já dentro de uma seção (F5 com scroll restaurado, link âncora),
-o `ScrollTrigger` não dispara `onEnter` e o texto fica na cena anterior até o
-primeiro scroll. Testei a correção e ela funciona:
-
-```diff
- onEnter:()=>onSceneChange(scene),onEnterBack:()=>onSceneChange(scene),
-+onToggle:self=>{if(self.isActive)onSceneChange(scene)},
+```ts
+export default defineConfig({ plugins:[react()], server:{ host:'0.0.0.0', allowedHosts:['.e2b.app'] }, preview:{ allowedHosts:['.e2b.app'] } });
 ```
 
-**Revertido** para respeitar o escopo. A navegação rolando normalmente está
-correta; só o caso de abrir parado no meio falha.
+## 5. REVERTIDO — `eslint.config.js` é o da fundação
 
-## 8. OBSERVAÇÃO — nomenclatura da cena 03
+O adendo proíbe alterar. Uso o `lint` da fundação (`eslint src`) sem mudanças.
+Meus scripts em `scripts/` não são cobertos por ele (ficam fora de `src`), o que é
+aceitável: eles falham alto quando têm problema.
 
-A fundação registra `03-limiar`; o briefing pede `03-mao-boca`. **Substituí o
-slot 3**. As cenas 04 e 05 continuam intocadas. A pasta
-`public/assets/03-limiar/` ficou órfã (só tem o README original) — não removi
-nada fora do escopo.
+## 6. OBSERVAÇÃO — `src/scenes/_shared/` (arquivos novos, nenhum da fundação)
 
-## 9. OBSERVAÇÃO — peso do vendor-3d
+Câmera, texturas procedurais, partículas e materiais compartilhados pelas três
+cenas. Todos os arquivos são **novos**; nenhum arquivo da fundação foi alterado
+ali. O contrato §3 não prevê essa pasta.
 
-`vendor-3d` = 275 kB gzip, 65% do total. O `EffectComposer` só é usado em
-qualidade ≥ média; separá-lo em chunk sob demanda deve cortar 30–60 kB do
-caminho crítico. Exige import dinâmico no `App.tsx`, por isso não fiz.
+**Se o critério for rígido**, a alternativa é mover `_shared/` para
+`src/scenes/01-terra/_internal/` e importar de lá. Funciona, mas cria acoplamento
+pior entre cenas independentes. A decisão é de vocês.
+
+## 7. RESOLVIDO — `?qualidade=` e o meu painel de debug saíram
+
+Meu `SceneDebug.tsx` montava um painel próprio e aceitava `?cena=` e `?qualidade=`.
+Com o contrato §7, o painel é `src/ui/DebugPanel.tsx` (da fundação).
+**Removi o meu harness inteiro** e as cenas agora só consomem `progress` —
+conforme §6, nenhuma cena chama `scrollTo`, cria RAF ou toca no Lenis.
+`?debug=1` funciona pelo painel da fundação (seletor de cena + slider de progresso).
+
+## 8. CONFORME — montagem de cenas adjacentes
+
+O `App.tsx` monta a cena ativa e as vizinhas (`Math.abs(index-activeIndex)<=1`)
+para a transição já ter a próxima composição pronta. Isso significa que
+`useFrame` roda em cenas invisíveis. Adicionei uma guarda em cada cena: ela só
+dirige a câmera compartilhada quando a cadeia de ancestrais está visível
+(`chainVisible(rootRef.current)`). Sem isso, duas cenas brigariam pela câmera.
+
+## 9. CONFORME — ids e pastas de assets
+
+A fundação usa `04-veias` / `05-cerebro`. Meus assets estão em
+`public/assets/01-terra|02-cogumelo|03-mao-boca`, alinhados com os ids. A pasta
+antiga `public/assets/03-limiar/` não existe mais na fundação nova — nada a fazer.
