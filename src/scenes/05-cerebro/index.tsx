@@ -1,0 +1,1 @@
+export {Brain as Component} from '../stubs';
