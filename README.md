@@ -4,18 +4,19 @@ Página surpresa para a Caca: um editor de código (tema escuro do VS Code) com 
 
 **Sem build. Sem framework. Sem dependência.** É HTML + CSS + JS puro.
 
-## Publicar de graça no GitHub Pages (5 minutos)
+## Publicar de graça na Vercel (recomendado)
 
-1. Faça o merge deste PR na `main` (ou suba os arquivos direto para a `main`).
-2. No GitHub, abra o repositório → **Settings** → **Pages**.
-3. Em **Build and deployment** → **Source**: `Deploy from a branch`.
-4. Em **Branch**: `main` e pasta `/ (root)` → **Save**.
-5. Aguarde ~1 minuto. A página fica em `https://SEU-USUARIO.github.io/NOME-DO-REPO/`.
+1. Faça o merge deste PR na `main`.
+2. Em [vercel.com/new](https://vercel.com/new), importe o repositório `mainchat` do GitHub.
+3. **Framework Preset**: `Other` — **Build Command**: vazio · **Output Directory**: vazio (raiz) · **Install Command**: vazio. Não precisa de variável de ambiente.
+4. Clique **Deploy**. Em ~1 minuto sai a URL `https://SEU-PROJETO.vercel.app`.
+5. Sugestão: no campo de nome do projeto, use algo impossível de adivinhar (ex.: `cert-caca-x7k2`) — o nome do projeto vira o subdomínio.
+
+> Alternativa: GitHub Pages (Settings → Pages → Deploy from a branch → `main`, pasta `/ (root)`).
 
 > 🔒 **Privacidade:** a página já tem `noindex,nofollow`, sem analytics e sem formulários.
-> Mesmo assim um link público é público. Sugestão: **renomeie o repositório** para algo
-> impossível de adivinhar (ex.: `cert-caca-x7k2`) *antes* de ativar o Pages — a URL muda junto.
-> E mande o link só para ela. 😉
+> Mesmo assim um link público é público — use um nome de projeto difícil de adivinhar
+> e mande o link só para ela. 😉
 
 Testar no seu PC antes:
 

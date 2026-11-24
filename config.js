@@ -202,7 +202,7 @@ const CONFIG = {
     assinatura: '— Deivid',
     /* cole aqui o link da playlist do YouTube quando ela estiver pronta.
        deixe vazio ('') que o botão some da página. */
-    playlistUrl: '',
+    playlistUrl: 'https://www.youtube.com/watch?v=UrIiLvg58SY&list=PLpOehZ0r85ixl-tdCfLqH7JmZe7BwxM2L',
     playlistTexto: 'a playlist que eu te prometi :3',
     playlistRotulo: 'ouvir a playlist',
   },
