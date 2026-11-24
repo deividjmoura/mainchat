@@ -1,0 +1,5 @@
+# lixo de build/local — o site é estático (HTML + CSS + JS puro)
+.venv/
+node_modules/
+.DS_Store
+*.log
